@@ -7,7 +7,7 @@ from src.edge_case_tracker import EdgeCaseTracker
 
 st.set_page_config(
     page_title="Vestorium AI Startup Screener",
-    page_icon="assets/Logo Transparent.png",
+    page_icon="assets/VestoriumLogo.png",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -204,7 +204,7 @@ def analyze_repo(url, quick=True):
 # ── Header ─────────────────────────────────────────────────────────────────
 col_logo, col_title = st.columns([2, 7])
 with col_logo:
-    st.image("assets/Logo Transparent.png", width=280)
+    st.image("assets/VestoriumLogo.png", width=280)
 with col_title:
     st.markdown("""
     <div style="padding-top:0.5rem;">
