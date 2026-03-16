@@ -40,12 +40,17 @@ class GitHubScraper:
     API_ONLY_SIGNAL = ["openai", "anthropic"]
 
     def __init__(self, token="", quick=False):
-        self.session = requests.Session()
-        if token:
-            self.session.headers.update({"Authorization": f"token {token}"})
-        self.session.headers.update({"Accept": "application/vnd.github.v3+json"})
+        self.token = token
         self.quick = quick
         self.max_pages = 3 if quick else 999
+        self.session = self._make_session()
+
+    def _make_session(self):
+        session = requests.Session()
+        if self.token:
+            session.headers.update({"Authorization": f"token {self.token}"})
+        session.headers.update({"Accept": "application/vnd.github.v3+json"})
+        return session
 
     def _parse_owner_repo(self, url):
         url = url.rstrip("/").replace("https://github.com/", "")
@@ -70,9 +75,13 @@ class GitHubScraper:
         dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
         return dt.strftime("%Y-%m-%d")
 
-    def _paginate(self, url, params=None):
+    def _paginate(self, url, params=None, retries=2):
         """Fetch pages from a paginated GitHub API endpoint.
-        Respects self.max_pages — capped in quick mode, unlimited in full mode."""
+        Respects self.max_pages — capped in quick mode, unlimited in full mode.
+        Retries failed calls up to `retries` times before giving up.
+        Course 6 concept: exception handling and retry patterns.
+        """
+        import time
         if params is None:
             params = {}
         params["per_page"] = 100
@@ -80,14 +89,33 @@ class GitHubScraper:
         page = 1
         while page <= self.max_pages:
             params["page"] = page
-            r = self.session.get(url, params=params.copy(), timeout=15)
-            if r.status_code != 200:
-                break
-            data = r.json()
-            if not data:
-                break
-            results.extend(data)
-            if len(data) < 100:
+            attempt = 0
+            success = False
+            while attempt <= retries:
+                try:
+                    r = self.session.get(url, params=params.copy(), timeout=15)
+                    if r.status_code == 200:
+                        data = r.json()
+                        if not data:
+                            return results
+                        results.extend(data)
+                        if len(data) < 100:
+                            return results
+                        success = True
+                        break
+                    elif r.status_code == 403:
+                        # Rate limit hit — wait and retry
+                        print(f"  ⚠️ Rate limit hit, waiting 10s...")
+                        time.sleep(10)
+                        attempt += 1
+                    else:
+                        # Other error — no point retrying
+                        return results
+                except Exception as e:
+                    print(f"  ⚠️ Request failed ({attempt+1}/{retries}): {e}")
+                    time.sleep(3)
+                    attempt += 1
+            if not success:
                 break
             page += 1
         return results
@@ -126,62 +154,73 @@ class GitHubScraper:
         owner, repo = self._parse_owner_repo(repo_url)
         print(f"Fetching data for: {owner}/{repo}")
 
+        # Fresh session per call — ensures thread safety
+        self.session = self._make_session()
+
         # Basic repo data
         r = self.session.get(f"{self.BASE}/repos/{owner}/{repo}", timeout=15)
         repo_data = r.json()
         stars  = repo_data.get("stargazers_count", 0)
         topics = repo_data.get("topics", [])
 
-        # Contributors — paginated, full count used everywhere
-        contributors = self._paginate(
-            f"{self.BASE}/repos/{owner}/{repo}/contributors"
-        )
-        total_contributors = len(contributors)
-        single_contributor_risk = total_contributors == 1
-        total_commits = sum(c.get("contributions", 0) for c in contributors)
-
-        # Commits 30d — fully paginated
-        since_30d = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
-        commits_30d_list = self._paginate(
-            f"{self.BASE}/repos/{owner}/{repo}/commits",
-            params={"since": since_30d}
-        )
-        commits_30d = len(commits_30d_list)
-
-        # Age and velocity
-        repo_age_months  = self._months_since(repo_data.get("created_at"))
+        # Age fields — calculated from basic repo data
+        repo_age_months   = self._months_since(repo_data.get("created_at"))
         repo_created_date = self._format_date(repo_data.get("created_at"))
-        commit_velocity  = round(total_commits / repo_age_months if repo_age_months > 0 else 0, 1)
         days_since_update = self._days_since(repo_data.get("pushed_at"))
+        since_30d         = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+        years             = repo_age_months / 12 if repo_age_months > 0 else 1
 
-        # Releases — fully paginated
-        releases = self._paginate(
-            f"{self.BASE}/repos/{owner}/{repo}/releases"
-        )
-        release_count = len(releases)
-        years = repo_age_months / 12 if repo_age_months > 0 else 1
+        # ── Threaded parallel fetch of all paginated endpoints ────────────
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        def fetch_contributors():
+            return self._paginate(f"{self.BASE}/repos/{owner}/{repo}/contributors")
+
+        def fetch_commits_30d():
+            return self._paginate(
+                f"{self.BASE}/repos/{owner}/{repo}/commits",
+                params={"since": since_30d}
+            )
+
+        def fetch_releases():
+            return self._paginate(f"{self.BASE}/repos/{owner}/{repo}/releases")
+
+        def fetch_prs():
+            return self._paginate(
+                f"{self.BASE}/repos/{owner}/{repo}/pulls",
+                params={"state": "all"}
+            )
+
+        def fetch_issues():
+            return self._paginate(
+                f"{self.BASE}/repos/{owner}/{repo}/issues",
+                params={"state": "all"}
+            )
+
+# Sequential fetch — threading handled at the caller level
+        contributors     = fetch_contributors()
+        commits_30d_list = fetch_commits_30d()
+        releases         = fetch_releases()
+        pr_list          = fetch_prs()
+        issue_list       = fetch_issues()
+
+        # Process results
+        total_contributors    = len(contributors)
+        single_contributor_risk = total_contributors == 1
+        total_commits         = sum(c.get("contributions", 0) for c in contributors)
+        commits_30d           = len(commits_30d_list)
+        commit_velocity       = round(total_commits / repo_age_months if repo_age_months > 0 else 0, 1)
+        release_count         = len(releases)
         releases_per_year     = round(release_count / years, 1)
         contributors_per_year = round(total_contributors / years, 1)
-
-        # Pull requests — fully paginated
-        pr_list    = self._paginate(
-            f"{self.BASE}/repos/{owner}/{repo}/pulls",
-            params={"state": "all"}
-        )
-        merged_prs    = sum(1 for p in pr_list if p.get("merged_at"))
-        pr_merge_rate = round((merged_prs / len(pr_list) * 100) if pr_list else 0, 1)
-
-        # Issues — paginated, full count
-        issue_list    = self._paginate(
-            f"{self.BASE}/repos/{owner}/{repo}/issues",
-            params={"state": "all"}
-        )
-        real_issues   = [i for i in issue_list if "pull_request" not in i]
-        closed_issues = sum(1 for i in real_issues if i.get("state") == "closed")
+        merged_prs            = sum(1 for p in pr_list if p.get("merged_at"))
+        pr_merge_rate         = round((merged_prs / len(pr_list) * 100) if pr_list else 0, 1)
+        real_issues           = [i for i in issue_list if "pull_request" not in i]
+        closed_issues         = sum(1 for i in real_issues if i.get("state") == "closed")
         issue_resolution_rate = round(
             (closed_issues / len(real_issues) * 100) if real_issues else 0, 1
         )
-        total_issues  = len(real_issues)
+        total_issues          = len(real_issues)    
 
         # Requirements & AI detection
         requirements    = self._get_requirements(owner, repo)
