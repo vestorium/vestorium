@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vestorium — AI Startup Screener</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --navy:  #042433;
+            --sage:  #E8F1EE;
+            --teal:  #598D7F;
+            --slate: #6B7C8D;
+            --white: #ffffff;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--white);
+            color: var(--navy);
+        }
+
+        /* ── Navigation ─────────────────────────────────── */
+        nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: var(--sage);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 48px;
+            border-bottom: 1px solid #d0ddd8;
+        }
+
+        .nav-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-logo img {
+            height: 36px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 32px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--slate);
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover { color: var(--navy); }
+
+        .nav-cta {
+            background: var(--teal);
+            color: var(--sage);
+            font-size: 13px;
+            font-weight: 500;
+            padding: 8px 20px;
+            border-radius: 6px;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+
+        .nav-cta:hover { background: #4a7a6d; }
+
+        /* ── Hero ───────────────────────────────────────── */
+        .hero {
+            background: var(--navy);
+            padding: 80px 48px 64px;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 40px;
+            font-weight: 500;
+            color: var(--sage);
+            line-height: 1.25;
+            margin-bottom: 20px;
+            letter-spacing: -0.5px;
+        }
+
+        .hero p {
+            font-size: 16px;
+            color: var(--slate);
+            max-width: 520px;
+            margin: 0 auto 36px;
+            line-height: 1.7;
+            font-weight: 300;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .btn-primary {
+            background: var(--teal);
+            color: var(--sage);
+            font-size: 14px;
+            font-weight: 500;
+            padding: 12px 28px;
+            border-radius: 6px;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+
+        .btn-primary:hover { background: #4a7a6d; }
+
+        .btn-secondary {
+            border: 1px solid var(--slate);
+            color: var(--slate);
+            font-size: 14px;
+            padding: 12px 28px;
+            border-radius: 6px;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--sage);
+            color: var(--sage);
+        }
+
+        /* ── Sector Coverage ────────────────────────────── */
+        .sector-coverage {
+            background: var(--navy);
+            padding: 0 48px 48px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .sector-label {
+            font-size: 11px;
+            color: var(--slate);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 14px;
+        }
+
+        .sector-tags {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .sector-tag {
+            font-size: 13px;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-weight: 500;
+        }
+
+        .sector-tag.active {
+            background: rgba(89,141,127,0.15);
+            color: var(--teal);
+            border: 1px solid var(--teal);
+        }
+
+        .sector-tag.soon {
+            background: transparent;
+            color: var(--slate);
+            border: 1px solid rgba(107,124,141,0.3);
+        }
+
+        /* ── Section wrapper ────────────────────────────── */
+        .section {
+            padding: 64px 48px;
+        }
+
+        .section-alt { background: var(--sage); }
+
+        .section-label {
+            font-size: 11px;
+            color: var(--slate);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 32px;
+        }
+
+        /* ── Methodology ────────────────────────────────── */
+        .methodology-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 16px;
+        }
+
+        .methodology-card {
+            background: var(--white);
+            border: 1px solid #d0ddd8;
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .methodology-card .points {
+            font-family: 'DM Mono', monospace;
+            font-size: 28px;
+            font-weight: 500;
+            color: var(--teal);
+            margin-bottom: 8px;
+        }
+
+        .methodology-card .dim-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--navy);
+            margin-bottom: 6px;
+        }
+
+        .methodology-card .dim-detail {
+            font-size: 12px;
+            color: var(--slate);
+            line-height: 1.5;
+        }
+
+        /* ── Sample Results ─────────────────────────────── */
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid #d0ddd8;
+            border-radius: 10px;
+            overflow: hidden;
+            font-size: 13px;
+        }
+
+        .results-table th {
+            background: var(--sage);
+            padding: 10px 16px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--slate);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .results-table td {
+            padding: 14px 16px;
+            border-top: 1px solid #e8f0ed;
+            color: var(--navy);
+        }
+
+        .verdict-strong-buy {
+            background: rgba(89,141,127,0.12);
+            color: var(--teal);
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .verdict-buy {
+            background: rgba(4,36,51,0.08);
+            color: var(--navy);
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .verdict-pass {
+            background: rgba(107,124,141,0.1);
+            color: var(--slate);
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .score-bar-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .score-bar-bg {
+            width: 60px;
+            height: 4px;
+            background: #d0ddd8;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .score-bar-fill {
+            height: 4px;
+            background: var(--teal);
+            border-radius: 2px;
+        }
+
+        .score-bar-fill.pass { background: var(--slate); }
+
+        .results-disclaimer {
+            font-size: 12px;
+            color: var(--slate);
+            margin-top: 12px;
+            font-style: italic;
+        }
+
+        /* ── About + CTA ────────────────────────────────── */
+        .about-cta-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 48px;
+            align-items: center;
+        }
+
+        .about-text {
+            font-size: 15px;
+            color: var(--navy);
+            line-height: 1.8;
+            font-weight: 300;
+        }
+
+        .cta-box {
+            background: var(--navy);
+            border-radius: 12px;
+            padding: 32px;
+            text-align: center;
+        }
+
+        .cta-box h3 {
+            color: var(--sage);
+            font-size: 18px;
+            font-weight: 500;
+            margin-bottom: 10px;
+        }
+
+        .cta-box p {
+            color: var(--slate);
+            font-size: 13px;
+            margin-bottom: 24px;
+            line-height: 1.6;
+        }
+
+        /* ── Footer ─────────────────────────────────────── */
+        footer {
+            background: var(--navy);
+            padding: 24px 48px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        footer span {
+            font-size: 12px;
+            color: var(--slate);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navigation -->
+    <nav>
+        <div class="nav-logo">
+            <img src="Assets/VestoriumLogo.png" alt="Vestorium">
+        </div>
+        <ul class="nav-links">
+            <li><a href="#methodology">Methodology</a></li>
+            <li><a href="#results">Results</a></li>
+            <li><a href="#about">About</a></li>
+        </ul>
+        <a href="https://vestorium.streamlit.app" target="_blank" class="nav-cta">Try live demo →</a>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <h1>From code to conviction</h1>
+        <p>Vestorium translates a startup's GitHub activity into structured investment signals — giving analysts a repeatable, data-driven foundation for technical due diligence.</p>
+        <div class="hero-buttons">
+            <a href="https://vestorium.streamlit.app" target="_blank" class="btn-primary">Try live demo →</a>
+            <a href="#methodology" class="btn-secondary">View methodology</a>
+        </div>
+    </section>
+
+    <!-- Sector Coverage -->
+    <section class="sector-coverage">
+        <p class="sector-label">Sector Coverage</p>
+        <div class="sector-tags">
+            <span class="sector-tag active">Fintech ✓</span>
+            <span class="sector-tag soon">Developer Tools — coming soon</span>
+            <span class="sector-tag soon">Legal Tech — coming soon</span>
+        </div>
+    </section>
+
+    <!-- Methodology -->
+    <section class="section" id="methodology">
+        <p class="section-label">Scoring methodology — 100 points total</p>
+        <div class="methodology-grid">
+            <div class="methodology-card">
+                <div class="points">30</div>
+                <div class="dim-name">Technical execution</div>
+                <div class="dim-detail">Commit velocity, release frequency, repo freshness</div>
+            </div>
+            <div class="methodology-card">
+                <div class="points">30</div>
+                <div class="dim-name">Technical moat</div>
+                <div class="dim-detail">Custom model code, data pipeline, AI approach</div>
+            </div>
+            <div class="methodology-card">
+                <div class="points">20</div>
+                <div class="dim-name">Community traction</div>
+                <div class="dim-detail">Stars, fork ratio, issue resolution, PR merge rate</div>
+            </div>
+            <div class="methodology-card">
+                <div class="points">15</div>
+                <div class="dim-name">Team strength</div>
+                <div class="dim-detail">Contributors per year, key person risk, capability signals</div>
+            </div>
+            <div class="methodology-card">
+                <div class="points">5</div>
+                <div class="dim-name">Engineering discipline</div>
+                <div class="dim-detail">CI/CD pipeline, test coverage, license</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Sample Results -->
+    <section class="section section-alt" id="results">
+        <p class="section-label">Sample screening results — fintech vertical</p>
+        <table class="results-table">
+            <thead>
+                <tr>
+                    <th>Startup</th>
+                    <th>Score</th>
+                    <th>Verdict</th>
+                    <th>Flags</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>feast</strong></td>
+                    <td><div class="score-bar-wrap"><span>80</span><div class="score-bar-bg"><div class="score-bar-fill" style="width:80%"></div></div></div></td>
+                    <td><span class="verdict-strong-buy">Strong Buy</span></td>
+                    <td>1 flag</td>
+                </tr>
+                <tr>
+                    <td><strong>spaCy</strong></td>
+                    <td><div class="score-bar-wrap"><span>76</span><div class="score-bar-bg"><div class="score-bar-fill" style="width:76%"></div></div></div></td>
+                    <td><span class="verdict-buy">Buy</span></td>
+                    <td>0 flags</td>
+                </tr>
+                <tr>
+                    <td><strong>qlib</strong></td>
+                    <td><div class="score-bar-wrap"><span>70</span><div class="score-bar-bg"><div class="score-bar-fill" style="width:70%"></div></div></div></td>
+                    <td><span class="verdict-buy">Buy</span></td>
+                    <td>1 flag</td>
+                </tr>
+                <tr>
+                    <td><strong>FinRL</strong></td>
+                    <td><div class="score-bar-wrap"><span>62</span><div class="score-bar-bg"><div class="score-bar-fill" style="width:62%"></div></div></div></td>
+                    <td><span class="verdict-buy">Buy</span></td>
+                    <td>2 flags</td>
+                </tr>
+                <tr>
+                    <td><strong>backtesting.py</strong></td>
+                    <td><div class="score-bar-wrap"><span>38</span><div class="score-bar-bg"><div class="score-bar-fill pass" style="width:38%"></div></div></div></td>
+                    <td><span class="verdict-pass">Pass</span></td>
+                    <td>4 flags</td>
+                </tr>
+                <tr>
+                    <td><strong>pyfinance</strong></td>
+                    <td><div class="score-bar-wrap"><span>18</span><div class="score-bar-bg"><div class="score-bar-fill pass" style="width:18%"></div></div></div></td>
+                    <td><span class="verdict-pass">Pass</span></td>
+                    <td>8 flags</td>
+                </tr>
+            </tbody>
+        </table>
+        <p class="results-disclaimer">Pass verdicts are shown intentionally — credible screening shows both sides.</p>
+    </section>
+
+    <!-- About + CTA -->
+    <section class="section" id="about">
+        <div class="about-cta-grid">
+            <div>
+                <p class="section-label">About</p>
+                <p class="about-text">Built by a financial services professional with 8+ years of industry experience, including 5+ years in PE and VC. Vestorium automates technical due diligence and aims to deliver analytical insights across multiple dimensions of investment evaluation.</p>
+            </div>
+            <div class="cta-box">
+                <h3>Analyze any fintech repo</h3>
+                <p>Paste a GitHub URL and get a full investment score in under 60 seconds.</p>
+                <a href="https://vestorium.streamlit.app" target="_blank" class="btn-primary">Try live demo →</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <span>© 2026 Vestorium</span>
+        <span>vestorium.in</span>
+    </footer>
+
+</body>
+</html>
