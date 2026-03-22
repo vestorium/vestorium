@@ -1,6 +1,9 @@
 import requests
 import base64
+import os
+import json
 from datetime import datetime, timezone, timedelta
+
 
 class GitHubScraper:
     BASE = "https://api.github.com"
@@ -39,11 +42,14 @@ class GitHubScraper:
     FINE_TUNE_LIBS  = ["peft", "lora", "qlora", "bitsandbytes"]
     API_ONLY_SIGNAL = ["openai", "anthropic"]
 
-    def __init__(self, token="", quick=False):
-        self.token = token
-        self.quick = quick
-        self.max_pages = 3 if quick else 999
-        self.session = self._make_session()
+    def __init__(self, token="", quick=False, cache_hours=24):
+        self.token      = token
+        self.quick      = quick
+        self.max_pages  = 3 if quick else 999
+        self.cache_hours = cache_hours
+        self.cache_dir  = "data/cache"
+        os.makedirs(self.cache_dir, exist_ok=True)
+        self.session    = self._make_session()
 
     def _make_session(self):
         session = requests.Session()
@@ -52,10 +58,39 @@ class GitHubScraper:
         session.headers.update({"Accept": "application/vnd.github.v3+json"})
         return session
 
+    def _cache_path(self, repo_url):
+        safe_name = repo_url.replace("https://github.com/", "").replace("/", "__")
+        mode = "quick" if self.quick else "full"
+        return os.path.join(self.cache_dir, f"{safe_name}__{mode}.json")
+
+    def _get_cached(self, repo_url):
+        path = self._cache_path(repo_url)
+        if not os.path.exists(path):
+            return None
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                cached = json.load(f)
+            cached_at = datetime.fromisoformat(cached.get("_cached_at", "2000-01-01"))
+            age = datetime.now() - cached_at
+            if age < timedelta(hours=self.cache_hours):
+                print(f"  ✓ Cache hit: {repo_url} ({age.seconds // 3600}h {(age.seconds % 3600) // 60}m old)")
+                return cached
+            else:
+                print(f"  ↻ Cache expired: {repo_url}")
+                return None
+        except Exception:
+            return None
+
+    def _save_cache(self, repo_url, data):
+        path = self._cache_path(repo_url)
+        try:
+            data["_cached_at"] = datetime.now().isoformat()
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, default=str)
+        except Exception as e:
+            print(f"  ⚠️ Cache save failed: {e}")
+
     def _safe_get(self, session, url, params=None, retries=3):
-        """
-        Thread-safe GET with exponential backoff on rate limits.
-        """
         import time
         wait = 5
         for attempt in range(retries):
@@ -64,7 +99,6 @@ class GitHubScraper:
                 if r.status_code == 200:
                     return r
                 elif r.status_code in (403, 429):
-                    # Rate limit hit — exponential backoff
                     print(f"  ⚠️ Rate limit hit, waiting {wait}s... (attempt {attempt+1}/{retries})")
                     time.sleep(wait)
                     wait *= 2
@@ -77,6 +111,27 @@ class GitHubScraper:
                 time.sleep(wait)
                 wait *= 2
         return None
+
+    def _paginate(self, url, params=None):
+        if params is None:
+            params = {}
+        params["per_page"] = 100
+        results = []
+        page = 1
+        session = self._make_session()
+        while page <= self.max_pages:
+            page_params = {**params, "page": page}
+            r = self._safe_get(session, url, params=page_params)
+            if r is None:
+                break
+            data = r.json()
+            if not data:
+                break
+            results.extend(data)
+            if len(data) < 100:
+                break
+            page += 1
+        return results
 
     def _parse_owner_repo(self, url):
         url = url.rstrip("/").replace("https://github.com/", "")
@@ -100,56 +155,6 @@ class GitHubScraper:
             return "Unknown"
         dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
         return dt.strftime("%Y-%m-%d")
-
-    def _paginate(self, url, params=None):
-        """Fetch all pages from a paginated GitHub API endpoint.
-        Uses _safe_get for rate limit handling and retries.
-        Respects self.max_pages — capped in quick mode, unlimited in full mode.
-        """
-        import time
-        if params is None:
-            params = {}
-        params["per_page"] = 100
-        results = []
-        page = 1
-        session = self._make_session()
-        while page <= self.max_pages:
-            page_params = {**params, "page": page}
-            r = self._safe_get(session, url, params=page_params)
-            if r is None:
-                break
-            data = r.json()
-            if not data:
-                break
-            results.extend(data)
-            if len(data) < 100:
-                break
-            page += 1
-        return results
-        """Fetch pages from a paginated GitHub API endpoint.
-        Respects self.max_pages — capped in quick mode, unlimited in full mode.
-        Retries failed calls up to `retries` times before giving up.
-        Course 6 concept: exception handling and retry patterns.
-        """
-        import time
-        if params is None:
-            params = {}
-        params["per_page"] = 100
-        results = []
-        page = 1
-        while page <= self.max_pages:
-            page_params = {**params, "page": page}
-            r = self._safe_get(session, url, params=page_params)
-            if r is None:
-                break
-            data = r.json()
-            if not data:
-                break
-            results.extend(data)
-            if len(data) < 100:
-                break
-            page += 1
-        return results
 
     def _get_requirements(self, owner, repo):
         combined = ""
@@ -186,10 +191,14 @@ class GitHubScraper:
 
     def get_repo_info(self, repo_url):
         owner, repo = self._parse_owner_repo(repo_url)
-        print(f"Fetching data for: {owner}/{repo}")
 
-        # Fresh session per call — ensures thread safety
-        self.session = self._make_session()
+        # Check cache first
+        cached = self._get_cached(repo_url)
+        if cached:
+            cached.pop("_cached_at", None)
+            return cached
+
+        print(f"Fetching data for: {owner}/{repo}")
 
         # Basic repo data
         session = self._make_session()
@@ -200,16 +209,14 @@ class GitHubScraper:
         stars  = repo_data.get("stargazers_count", 0)
         topics = repo_data.get("topics", [])
 
-        # Age fields — calculated from basic repo data
+        # Age fields
         repo_age_months   = self._months_since(repo_data.get("created_at"))
         repo_created_date = self._format_date(repo_data.get("created_at"))
         days_since_update = self._days_since(repo_data.get("pushed_at"))
         since_30d         = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
         years             = repo_age_months / 12 if repo_age_months > 0 else 1
 
-        # ── Threaded parallel fetch of all paginated endpoints ────────────
-        from concurrent.futures import ThreadPoolExecutor, as_completed
-
+        # Threaded parallel fetch of all paginated endpoints
         def fetch_contributors():
             return self._paginate(f"{self.BASE}/repos/{owner}/{repo}/contributors")
 
@@ -234,7 +241,6 @@ class GitHubScraper:
                 params={"state": "all"}
             )
 
-# Sequential fetch — threading handled at the caller level
         contributors     = fetch_contributors()
         commits_30d_list = fetch_commits_30d()
         releases         = fetch_releases()
@@ -242,22 +248,22 @@ class GitHubScraper:
         issue_list       = fetch_issues()
 
         # Process results
-        total_contributors    = len(contributors)
+        total_contributors      = len(contributors)
         single_contributor_risk = total_contributors == 1
-        total_commits         = sum(c.get("contributions", 0) for c in contributors)
-        commits_30d           = len(commits_30d_list)
-        commit_velocity       = round(total_commits / repo_age_months if repo_age_months > 0 else 0, 1)
-        release_count         = len(releases)
-        releases_per_year     = round(release_count / years, 1)
-        contributors_per_year = round(total_contributors / years, 1)
-        merged_prs            = sum(1 for p in pr_list if p.get("merged_at"))
-        pr_merge_rate         = round((merged_prs / len(pr_list) * 100) if pr_list else 0, 1)
-        real_issues           = [i for i in issue_list if "pull_request" not in i]
-        closed_issues         = sum(1 for i in real_issues if i.get("state") == "closed")
-        issue_resolution_rate = round(
+        total_commits           = sum(c.get("contributions", 0) for c in contributors)
+        commits_30d             = len(commits_30d_list)
+        commit_velocity         = round(total_commits / repo_age_months if repo_age_months > 0 else 0, 1)
+        release_count           = len(releases)
+        releases_per_year       = round(release_count / years, 1)
+        contributors_per_year   = round(total_contributors / years, 1)
+        merged_prs              = sum(1 for p in pr_list if p.get("merged_at"))
+        pr_merge_rate           = round((merged_prs / len(pr_list) * 100) if pr_list else 0, 1)
+        real_issues             = [i for i in issue_list if "pull_request" not in i]
+        closed_issues           = sum(1 for i in real_issues if i.get("state") == "closed")
+        issue_resolution_rate   = round(
             (closed_issues / len(real_issues) * 100) if real_issues else 0, 1
         )
-        total_issues          = len(real_issues)    
+        total_issues            = len(real_issues)
 
         # Requirements & AI detection
         requirements    = self._get_requirements(owner, repo)
@@ -330,13 +336,13 @@ class GitHubScraper:
         has_tests = (self._check_file_exists(owner, repo, "tests") or
                      self._check_file_exists(owner, repo, "test"))
 
-        # Fintech signals — combined
+        # Fintech signals
         description      = (repo_data.get("description") or "").lower()
         keyword_hits     = [kw for kw in self.FINTECH_KEYWORDS if kw in description]
         topic_hits       = [t for t in topics_lower if t in self.FINTECH_DEPS]
         fintech_signals  = ", ".join(set(keyword_hits + topic_hits + fintech_deps)) or "None"
 
-        return {
+        result = {
             # ── GROUP 1: Scoring Parameters ───────────────────────────
             "startup_name"           : repo_data.get("name"),
             "repo_created_date"      : repo_created_date,
@@ -380,3 +386,5 @@ class GitHubScraper:
             "github_url"             : repo_url,
             "analyzed_date"          : datetime.now().strftime("%Y-%m-%d"),
         }
+        self._save_cache(repo_url, result)
+        return result
