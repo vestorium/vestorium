@@ -52,6 +52,32 @@ class GitHubScraper:
         session.headers.update({"Accept": "application/vnd.github.v3+json"})
         return session
 
+    def _safe_get(self, session, url, params=None, retries=3):
+        """
+        Thread-safe GET with exponential backoff on rate limits.
+        """
+        import time
+        wait = 5
+        for attempt in range(retries):
+            try:
+                r = session.get(url, params=params, timeout=15)
+                if r.status_code == 200:
+                    return r
+                elif r.status_code in (403, 429):
+                    # Rate limit hit — exponential backoff
+                    print(f"  ⚠️ Rate limit hit, waiting {wait}s... (attempt {attempt+1}/{retries})")
+                    time.sleep(wait)
+                    wait *= 2
+                elif r.status_code == 404:
+                    return None
+                else:
+                    return None
+            except Exception as e:
+                print(f"  ⚠️ Request error: {e}, retrying in {wait}s...")
+                time.sleep(wait)
+                wait *= 2
+        return None
+
     def _parse_owner_repo(self, url):
         url = url.rstrip("/").replace("https://github.com/", "")
         parts = url.split("/")
@@ -75,7 +101,31 @@ class GitHubScraper:
         dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
         return dt.strftime("%Y-%m-%d")
 
-    def _paginate(self, url, params=None, retries=2):
+    def _paginate(self, url, params=None):
+        """Fetch all pages from a paginated GitHub API endpoint.
+        Uses _safe_get for rate limit handling and retries.
+        Respects self.max_pages — capped in quick mode, unlimited in full mode.
+        """
+        import time
+        if params is None:
+            params = {}
+        params["per_page"] = 100
+        results = []
+        page = 1
+        session = self._make_session()
+        while page <= self.max_pages:
+            page_params = {**params, "page": page}
+            r = self._safe_get(session, url, params=page_params)
+            if r is None:
+                break
+            data = r.json()
+            if not data:
+                break
+            results.extend(data)
+            if len(data) < 100:
+                break
+            page += 1
+        return results
         """Fetch pages from a paginated GitHub API endpoint.
         Respects self.max_pages — capped in quick mode, unlimited in full mode.
         Retries failed calls up to `retries` times before giving up.
@@ -88,44 +138,26 @@ class GitHubScraper:
         results = []
         page = 1
         while page <= self.max_pages:
-            params["page"] = page
-            attempt = 0
-            success = False
-            while attempt <= retries:
-                try:
-                    r = self.session.get(url, params=params.copy(), timeout=15)
-                    if r.status_code == 200:
-                        data = r.json()
-                        if not data:
-                            return results
-                        results.extend(data)
-                        if len(data) < 100:
-                            return results
-                        success = True
-                        break
-                    elif r.status_code == 403:
-                        # Rate limit hit — wait and retry
-                        print(f"  ⚠️ Rate limit hit, waiting 10s...")
-                        time.sleep(10)
-                        attempt += 1
-                    else:
-                        # Other error — no point retrying
-                        return results
-                except Exception as e:
-                    print(f"  ⚠️ Request failed ({attempt+1}/{retries}): {e}")
-                    time.sleep(3)
-                    attempt += 1
-            if not success:
+            page_params = {**params, "page": page}
+            r = self._safe_get(session, url, params=page_params)
+            if r is None:
+                break
+            data = r.json()
+            if not data:
+                break
+            results.extend(data)
+            if len(data) < 100:
                 break
             page += 1
         return results
 
     def _get_requirements(self, owner, repo):
         combined = ""
+        session = self._make_session()
         for filepath in ["requirements.txt", "setup.py", "pyproject.toml"]:
             url = f"{self.BASE}/repos/{owner}/{repo}/contents/{filepath}"
-            r = self.session.get(url, timeout=15)
-            if r.status_code == 200:
+            r = self._safe_get(session, url)
+            if r and r.status_code == 200:
                 content = r.json().get("content", "")
                 try:
                     decoded = base64.b64decode(content).decode("utf-8", errors="ignore").lower()
@@ -136,14 +168,16 @@ class GitHubScraper:
 
     def _check_file_exists(self, owner, repo, filepath):
         url = f"{self.BASE}/repos/{owner}/{repo}/contents/{filepath}"
-        r = self.session.get(url, timeout=15)
-        return r.status_code == 200
+        session = self._make_session()
+        r = self._safe_get(session, url)
+        return r is not None
 
     def _search_file_in_repo(self, owner, repo, filename):
         url = f"{self.BASE}/search/code"
         params = {"q": f"filename:{filename} repo:{owner}/{repo}", "per_page": 1}
-        r = self.session.get(url, params=params, timeout=15)
-        if r.status_code == 200:
+        session = self._make_session()
+        r = self._safe_get(session, url, params=params)
+        if r:
             return r.json().get("total_count", 0) > 0
         return False
 
@@ -158,7 +192,10 @@ class GitHubScraper:
         self.session = self._make_session()
 
         # Basic repo data
-        r = self.session.get(f"{self.BASE}/repos/{owner}/{repo}", timeout=15)
+        session = self._make_session()
+        r = self._safe_get(session, f"{self.BASE}/repos/{owner}/{repo}")
+        if not r:
+            return {}
         repo_data = r.json()
         stars  = repo_data.get("stargazers_count", 0)
         topics = repo_data.get("topics", [])
