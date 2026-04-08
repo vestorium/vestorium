@@ -1,13 +1,11 @@
 """
 edge_case_tracker.py
 Structured edge case detection for Vestorium startup screening.
-All thresholds sourced from Master Reference document.
+Reads thresholds from vertical config — vertical agnostic.
 """
 
 from datetime import datetime
 
-# ── Flag definitions ───────────────────────────────────────────────────────
-# Each flag has: code, category, severity, threshold, comment template
 
 FLAG_DEFINITIONS = {
     "NO_AI_FRAMEWORK": {
@@ -32,7 +30,7 @@ FLAG_DEFINITIONS = {
         "category" : "Technical Moat",
         "severity" : "High",
         "threshold": "train.py or model.py expected at root level",
-        "comment"  : "No custom model code detected at root level — may be in subfolders or absent",
+        "comment"  : "No custom model code detected — may be in subfolders or absent. Manual verification recommended if flag seems implausible.",
     },
     "INFRASTRUCTURE_PLAY": {
         "category" : "Technical Moat",
@@ -49,25 +47,25 @@ FLAG_DEFINITIONS = {
     "LOW_ISSUE_RESOLUTION": {
         "category" : "Community Signal",
         "severity" : "High",
-        "threshold": "65% for fintech (Master Reference §4 Peer Benchmarks)",
-        "comment"  : "Issue resolution rate below fintech benchmark — indicates poor maintenance or overwhelmed team",
+        "threshold": "Vertical-specific benchmark applies",
+        "comment"  : "Issue resolution rate below vertical benchmark — indicates poor maintenance or overwhelmed team",
     },
     "LOW_COMMIT_VELOCITY": {
         "category" : "Activity Signal",
         "severity" : "High",
-        "threshold": "50 commits/month for fintech (Master Reference §4)",
-        "comment"  : "Commit velocity below fintech benchmark — low execution speed",
+        "threshold": "Vertical-specific benchmark applies",
+        "comment"  : "Commit velocity below vertical benchmark — low execution speed",
     },
     "STALE_REPO": {
         "category" : "Activity Signal",
         "severity" : "High",
-        "threshold": "Updated within 90 days (Master Reference §2)",
+        "threshold": "Updated within 90 days",
         "comment"  : "Repo not updated in 90+ days — possible abandonment",
     },
     "NO_LICENSE": {
         "category" : "Repository Basics",
         "severity" : "Medium",
-        "threshold": "MIT or Apache 2.0 preferred (Master Reference §1)",
+        "threshold": "MIT or Apache 2.0 preferred",
         "comment"  : "No license found — legal risk for enterprise adoption",
     },
     "API_WRAPPER": {
@@ -79,32 +77,39 @@ FLAG_DEFINITIONS = {
     "NO_CICD": {
         "category" : "Engineering Discipline",
         "severity" : "Low",
-        "threshold": "CI/CD expected at Series A+ (Master Reference §5)",
+        "threshold": "CI/CD expected at Series A+",
         "comment"  : "No CI/CD pipeline detected — engineering discipline concern at later stages",
     },
     "LOW_PR_MERGE_RATE": {
         "category" : "Community Signal",
         "severity" : "Medium",
-        "threshold": "40-70% merge rate (Master Reference §4)",
-        "comment"  : "PR merge rate below 40% — low community engagement or high rejection rate",
+        "threshold": "40-70% merge rate",
+        "comment"  : "PR merge rate outside healthy range — below 40% = low engagement, above 70% = possible low review standards",
     },
 }
 
 
 class EdgeCaseTracker:
 
-    def __init__(self, vertical="Finance/Fintech"):
-        self.vertical = vertical
+    def __init__(self, config=None):
+        """
+        Pass a vertical config module or dict.
+        Falls back to fintech defaults if no config provided.
+        """
+        if config is None:
+            from src.verticals.fintech import config as default_config
+            config = default_config
+
+        self.vertical   = config.VERTICAL_NAME
+        self.thresholds = config.FLAG_THRESHOLDS
         self.edge_cases = []
 
     def analyze(self, data: dict):
-        """Run all flag checks against a single repo's data. Returns list of flag codes."""
         flags_triggered = []
         name = data.get("startup_name", "Unknown")
         url  = data.get("github_url", "")
         date = datetime.now().strftime("%Y-%m-%d")
 
-        # ── Check each condition ───────────────────────────────────────
         checks = [
             (
                 "NO_AI_FRAMEWORK",
@@ -118,8 +123,8 @@ class EdgeCaseTracker:
             ),
             (
                 "FINTECH_KEYWORDS_ONLY",
-                data.get("is_fintech") and data.get("fintech_deps_found") == "None",
-                data.get("fintech_keyword_hits"),
+                data.get("fintech_signals") == "None" and bool(data.get("fintech_keyword_hits")),
+                data.get("fintech_signals"),
             ),
             (
                 "NO_CUSTOM_MODEL",
@@ -128,7 +133,9 @@ class EdgeCaseTracker:
             ),
             (
                 "INFRASTRUCTURE_PLAY",
-                data.get("stars", 0) > 1000 and not data.get("has_custom_model") and not data.get("has_data_pipeline"),
+                data.get("stars", 0) > self.thresholds["INFRASTRUCTURE_PLAY"]
+                and not data.get("has_custom_model")
+                and not data.get("has_data_pipeline"),
                 f"Stars: {data.get('stars')}",
             ),
             (
@@ -138,17 +145,17 @@ class EdgeCaseTracker:
             ),
             (
                 "LOW_ISSUE_RESOLUTION",
-                data.get("issue_resolution_rate", 0) < 40,
+                data.get("issue_resolution_rate", 0) < self.thresholds["LOW_ISSUE_RESOLUTION"],
                 f"{data.get('issue_resolution_rate')}%",
             ),
             (
                 "LOW_COMMIT_VELOCITY",
-                data.get("commit_velocity", 0) < 50,
+                data.get("commit_velocity", 0) < self.thresholds["LOW_COMMIT_VELOCITY"],
                 f"{data.get('commit_velocity')} commits/month",
             ),
             (
                 "STALE_REPO",
-                data.get("days_since_update", 0) > 90,
+                data.get("days_since_update", 0) > self.thresholds["STALE_REPO"],
                 f"{data.get('days_since_update')} days",
             ),
             (
@@ -168,7 +175,7 @@ class EdgeCaseTracker:
             ),
             (
                 "LOW_PR_MERGE_RATE",
-                data.get("pr_merge_rate", 0) < 40,
+                data.get("pr_merge_rate", 0) < self.thresholds["LOW_PR_MERGE_RATE"],
                 f"{data.get('pr_merge_rate')}%",
             ),
         ]
@@ -177,30 +184,28 @@ class EdgeCaseTracker:
             if condition:
                 definition = FLAG_DEFINITIONS[flag_code]
                 self.edge_cases.append({
-                    "startup_name"   : name,
-                    "github_url"     : url,
-                    "vertical"       : self.vertical,
-                    "flag_code"      : flag_code,
-                    "flag_category"  : definition["category"],
-                    "flag_severity"  : definition["severity"],
-                    "detected_value" : detected_value,
-                    "threshold"      : definition["threshold"],
-                    "comment"        : definition["comment"],
-                    "date_flagged"   : date,
+                    "startup_name"  : name,
+                    "github_url"    : url,
+                    "vertical"      : self.vertical,
+                    "flag_code"     : flag_code,
+                    "flag_category" : definition["category"],
+                    "flag_severity" : definition["severity"],
+                    "detected_value": detected_value,
+                    "threshold"     : definition["threshold"],
+                    "comment"       : definition["comment"],
+                    "date_flagged"  : date,
                 })
                 flags_triggered.append(flag_code)
 
         return flags_triggered
 
     def get_summary(self, flags_triggered: list):
-        """Returns flag_count and flag_codes string for main CSV."""
         return {
             "flag_count": len(flags_triggered),
             "flag_codes": ", ".join(flags_triggered) if flags_triggered else "None",
         }
 
     def save(self, filepath="data/edge_cases.csv"):
-        """Save all edge cases to CSV."""
         import pandas as pd
         import os
         os.makedirs("data", exist_ok=True)
