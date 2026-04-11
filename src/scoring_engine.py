@@ -113,7 +113,7 @@ class ScoringEngine:
         elif approach == "RAG / Custom LLM":       approach_pts = int(approach_max * 0.70)
         elif approach == "Traditional ML / Other": approach_pts = int(approach_max * 0.50)
         elif approach == "API Wrapper":            approach_pts = 0
-        else:                                      approach_pts = int(approach_max * 0.30)
+        else:                                      approach_pts = 0
 
         # API wrapper penalty
         api_penalty = -int(max_pts * 0.17) if data.get("is_api_wrapper") else 0
