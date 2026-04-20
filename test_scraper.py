@@ -11,6 +11,7 @@ import pandas as pd
 AVAILABLE_VERTICALS = {
     "fintech"          : "src.verticals.fintech",
     "developer_tools"  : "src.verticals.developer_tools",
+    "cybersecurity"    : "src.verticals.cybersecurity",
 }
 
 def load_vertical(slug):

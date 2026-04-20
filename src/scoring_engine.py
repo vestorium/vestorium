@@ -24,9 +24,10 @@ class ScoringEngine:
             config = default_config
 
         # Load benchmarks
-        self.benchmarks = config.BENCHMARKS
-        self.weights     = config.DIMENSION_WEIGHTS
-        self.thresholds  = config.RECOMMENDATION_THRESHOLDS
+        self.benchmarks    = config.BENCHMARKS
+        self.weights       = config.DIMENSION_WEIGHTS
+        self.thresholds    = config.RECOMMENDATION_THRESHOLDS
+        self.vertical_slug = getattr(config, 'VERTICAL_SLUG', 'fintech')
 
     def score(self, data: dict) -> dict:
         t1 = self._technical_execution(data)
@@ -218,17 +219,36 @@ class ScoringEngine:
 
     def _engineering_discipline(self, data: dict) -> dict:
         max_pts  = self.weights["engineering_discipline"]
-        cicd_pts = int(max_pts * 0.40) if data.get("has_cicd")  else 0
-        test_pts = int(max_pts * 0.40) if data.get("has_tests") else 0
-        lic_pts  = int(max_pts * 0.20) if data.get("license") not in ["None", None, ""] else 0
 
-        score = cicd_pts + test_pts + lic_pts
-        return {
-            "score"  : score,
-            "max"    : max_pts,
-            "details": {
-                "cicd_pts"   : cicd_pts,
-                "test_pts"   : test_pts,
-                "license_pts": lic_pts,
+        if self.vertical_slug == "cybersecurity":
+            # Cybersecurity: cicd 20%, tests 20%, security_policy 40%, license 20%
+            cicd_pts = int(max_pts * 0.20) if data.get("has_cicd")  else 0
+            test_pts = int(max_pts * 0.20) if data.get("has_tests") else 0
+            sec_pts  = int(max_pts * 0.40) if data.get("has_security_policy") else 0
+            lic_pts  = int(max_pts * 0.20) if data.get("license") not in ["None", None, ""] else 0
+            score = cicd_pts + test_pts + sec_pts + lic_pts
+            return {
+                "score"  : score,
+                "max"    : max_pts,
+                "details": {
+                    "cicd_pts"            : cicd_pts,
+                    "test_pts"            : test_pts,
+                    "security_policy_pts" : sec_pts,
+                    "license_pts"         : lic_pts,
+                }
             }
-        }
+        else:
+            # All other verticals: cicd 40%, tests 40%, license 20%
+            cicd_pts = int(max_pts * 0.40) if data.get("has_cicd")  else 0
+            test_pts = int(max_pts * 0.40) if data.get("has_tests") else 0
+            lic_pts  = int(max_pts * 0.20) if data.get("license") not in ["None", None, ""] else 0
+            score = cicd_pts + test_pts + lic_pts
+            return {
+                "score"  : score,
+                "max"    : max_pts,
+                "details": {
+                    "cicd_pts"   : cicd_pts,
+                    "test_pts"   : test_pts,
+                    "license_pts": lic_pts,
+                }
+            }
