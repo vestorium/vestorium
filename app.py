@@ -178,9 +178,10 @@ def save_data(df):
         return False
 
 def analyze_repo(url, quick=True):
+    import src.verticals.fintech.config as fintech_config
     scraper = GitHubScraper(GITHUB_TOKEN, quick=quick)
-    tracker = EdgeCaseTracker(vertical="Finance/Fintech")
-    scorer  = ScoringEngine()
+    tracker = EdgeCaseTracker(config=fintech_config)
+    scorer  = ScoringEngine(config=fintech_config)
 
     data = scraper.get_repo_info(url)
     if not data:

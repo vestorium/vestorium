@@ -332,9 +332,10 @@ class GitHubScraper:
         has_data_pipeline = (self._search_file_in_repo(owner, repo, "data_pipeline.py") or
                              self._search_file_in_repo(owner, repo, "preprocess.py") or
                              self._search_file_in_repo(owner, repo, "etl.py"))
-        has_cicd  = self._check_file_exists(owner, repo, ".github/workflows")
-        has_tests = (self._check_file_exists(owner, repo, "tests") or
-                     self._check_file_exists(owner, repo, "test"))
+        has_cicd            = self._check_file_exists(owner, repo, ".github/workflows")
+        has_tests           = (self._check_file_exists(owner, repo, "tests") or
+                               self._check_file_exists(owner, repo, "test"))
+        has_security_policy = self._check_file_exists(owner, repo, "SECURITY.md")
 
         # Fintech signals
         description      = (repo_data.get("description") or "").lower()
@@ -364,6 +365,7 @@ class GitHubScraper:
             "ai_approach"            : ai_approach,
             "has_cicd"               : has_cicd,
             "has_tests"              : has_tests,
+            "has_security_policy"    : has_security_policy,
             "license"                : (repo_data.get("license") or {}).get("spdx_id", "None"),
             "flag_count"             : 0,
             # ── GROUP 2: Diagnostic / Nuance Columns ──────────────────
