@@ -404,3 +404,58 @@ else:
                         st.rerun()
                     else:
                         st.error("Could not save — close Excel if open.")
+                        
+            # ── LLM Moat Analyzer ─────────────────────────────────────
+            st.markdown("")
+            if st.button("🧠 Run Moat Analysis", key=f"moat_{name}_{score}"):
+                with st.spinner(f"Running moat analysis for {name}..."):
+                    try:
+                        from src.llm_moat_analyzer import run_moat_analysis
+                        from src.github_scraper import GitHubScraper
+                        import os
+                        token = os.getenv("GITHUB_TOKEN", "")
+                        scraper = GitHubScraper(token=token, quick=True)
+                        owner, repo_name = url.replace("https://github.com/", "").split("/")[:2]
+                        repo_data = {
+                            "readme": scraper.get_readme(owner, repo_name),
+                            "code_files": scraper.get_named_code_files(owner, repo_name),
+                            "recent_prs": scraper.get_recent_prs(owner, repo_name)
+                        }
+                        moat_result = run_moat_analysis(url, repo_data, config)
+                        st.session_state[f"moat_{url}"] = moat_result["result"]
+                    except Exception as e:
+                        st.error(f"Moat analysis failed: {e}")
+
+            if f"moat_{url}" in st.session_state:
+                moat = st.session_state[f"moat_{url}"]
+                with st.expander("🧠 Moat Analysis", expanded=True):
+                    build = moat.get("build_classification", "Undetermined")
+                    moat_type = moat.get("moat_type", "Unknown")
+                    rationale = moat.get("rationale", "")
+                    prompts = moat.get("analyst_prompts", [])
+
+                    build_color = (
+                        "green" if build in ["Custom model", "Fine-tune"]
+                        else "orange" if build == "API wrapper"
+                        else "gray"
+                    )
+                    moat_color = (
+                        "green" if moat_type in ["Data moat", "Model moat"]
+                        else "orange" if moat_type == "Workflow moat"
+                        else "red"
+                    )
+
+                    st.markdown(
+                        f'<span style="background:{build_color};color:white;padding:4px 12px;'
+                        f'border-radius:12px;font-weight:bold;font-size:1rem">{build}</span>'
+                        f'&nbsp;&nbsp;'
+                        f'<span style="background:{moat_color};color:white;padding:4px 12px;'
+                        f'border-radius:12px;font-size:0.9rem">{moat_type}</span>',
+                        unsafe_allow_html=True
+                    )
+                    st.markdown("")
+                    st.markdown(f"**Assessment:** {rationale}")
+                    if prompts:
+                        st.markdown("**Analyst Prompts:**")
+                        for i, q in enumerate(prompts, 1):
+                            st.markdown(f"{i}. {q}")
