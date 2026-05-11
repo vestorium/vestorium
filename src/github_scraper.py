@@ -240,6 +240,7 @@ class GitHubScraper:
                 f"{self.BASE}/repos/{owner}/{repo}/issues",
                 params={"state": "all"}
             )
+              
 
         contributors     = fetch_contributors()
         commits_30d_list = fetch_commits_30d()
@@ -390,3 +391,55 @@ class GitHubScraper:
         }
         self._save_cache(repo_url, result)
         return result
+    
+    def get_readme(self, owner: str, repo: str) -> str:
+        session = self._make_session()
+        url = f"{self.BASE}/repos/{owner}/{repo}/readme"
+        response = self._safe_get(session, url)
+        if response and response.status_code == 200:
+            content = response.json().get("content", "")
+            import base64
+            try:
+                return base64.b64decode(content).decode("utf-8", errors="ignore")[:5000]
+            except Exception:
+                return ""
+        return ""
+    
+    def get_named_code_files(self, owner: str, repo: str) -> dict:
+        session = self._make_session()
+        target_names = ["train.py", "model.py", "agent.py", "trainer.py"]
+        url = f"{self.BASE}/repos/{owner}/{repo}/git/trees/HEAD?recursive=1"
+        response = self._safe_get(session, url)
+        if not response or response.status_code != 200:
+            return {}
+        tree = response.json().get("tree", [])
+        found = {}
+        for item in tree:
+            if item.get("type") == "blob":
+                filename = item["path"].split("/")[-1]
+                if filename in target_names and filename not in found:
+                    file_url = f"{self.BASE}/repos/{owner}/{repo}/contents/{item['path']}"
+                    file_response = self._safe_get(session, file_url)
+                    if file_response and file_response.status_code == 200:
+                        import base64 as b64
+                        content = file_response.json().get("content", "")
+                        try:
+                            found[filename] = b64.b64decode(content).decode("utf-8", errors="ignore")[:2000]
+                        except Exception:
+                            pass
+        return found
+
+    def get_recent_prs(self, owner: str, repo: str) -> list:
+        session = self._make_session()
+        url = f"{self.BASE}/repos/{owner}/{repo}/pulls"
+        response = self._safe_get(session, url, params={"state": "all", "per_page": 5})
+        if not response or response.status_code != 200:
+            return []
+        prs = response.json()
+        return [
+            {
+                "title": pr.get("title", ""),
+                "body": (pr.get("body") or "")[:300]
+            }
+            for pr in prs[:5]
+        ]

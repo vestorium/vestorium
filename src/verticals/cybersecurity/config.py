@@ -184,3 +184,11 @@ METRIC_INFO = {
         "note"       : "Deliberately noted: cybersecurity tools embedded in CI/CD pipelines or production infrastructure have high switching costs. Validate pipeline integration depth separately from GitHub signals.",
     },
 }
+# ── LLM Moat Analyzer context ─────────────────────────────────────────
+LLM_MOAT_CONTEXT = (
+    "For Cybersecurity AI startups, the key moat question is whether the threat "
+    "detection logic is proprietary or simply rule-based wrapping of an LLM. "
+    "Tools embedded in CI/CD pipelines or production infrastructure are hardest to "
+    "remove. A SECURITY.md with responsible disclosure policy signals credibility "
+    "with the security community. Commit velocity must keep pace with evolving threats."
+)

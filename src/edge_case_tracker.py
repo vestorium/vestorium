@@ -86,6 +86,66 @@ FLAG_DEFINITIONS = {
         "threshold": "40-70% merge rate",
         "comment"  : "PR merge rate outside healthy range — below 40% = low engagement, above 70% = possible low review standards",
     },
+    "PLATFORM_ABSORBED": {
+        "category" : "Technical Moat",
+        "severity" : "High",
+        "threshold": "Stars > 2000 + commit velocity < 30 + no releases in 90 days",
+        "comment"  : "Tool shows signs of absorption into a cloud platform — standalone investment thesis may be dead. Verify current ownership.",
+    },
+    "FRAMEWORK_LOCK": {
+        "category" : "Technical Moat",
+        "severity" : "High",
+        "threshold": "Single ML framework dependency detected",
+        "comment"  : "Dependencies tied to a single ML framework — TAM capped at that framework's user base. Framework-agnostic tools survive framework shifts.",
+    },
+    "CLOUD_VENDOR_DEPENDENT": {
+        "category" : "Technical Moat",
+        "severity" : "Medium",
+        "threshold": "Single cloud provider SDK detected",
+        "comment"  : "Heavy dependency on single cloud provider — TAM capped. Multi-cloud abstraction is core MLOps value proposition.",
+    },
+    "NO_INTEGRATION_SURFACE": {
+        "category" : "Technical Moat",
+        "severity" : "High",
+        "threshold": "No SDK, REST API, or CLI detected",
+        "comment"  : "No programmatic integration surface detected — UI-only product with low switching cost. Verify manually on PyPI.",
+    },
+    "COMMODITIZATION_RISK": {
+        "category" : "Technical Moat",
+        "severity" : "Medium",
+        "threshold": "Vector DB or Data Quality sub-category + no custom model + stars < 2000",
+        "comment"  : "Sub-category facing TAM compression from cloud providers — AWS, GCP, Azure now offer managed alternatives. Standalone tool must demonstrate clear differentiation.",
+    },
+    "SIMULATION_ONLY": {
+        "category" : "Technical Moat",
+        "severity" : "High",
+        "threshold": "has_custom_model=True + has_hardware_interface=False + stars > 500",
+        "comment"  : "AI code present but no hardware interface detected — software may never have been validated on real robots. Sim-to-real gap is the graveyard of robotics startups.",
+    },
+    "HARDWARE_DEPENDENT_LOCK": {
+        "category" : "Technical Moat",
+        "severity" : "Medium",
+        "threshold": "has_hardware_interface=True + contributors < 15 + stars < 1000",
+        "comment"  : "Tool may be locked to single robot manufacturer hardware — TAM capped at that manufacturer's installed base. Verify supported platforms manually.",
+    },
+    "BENCHMARK_MISSING": {
+        "category" : "Technical Moat",
+        "severity" : "High",
+        "threshold": "No evaluation framework in deps + no benchmark detected",
+        "comment"  : "No evaluation evidence detected — cannot verify agent task completion rate. Agent failure modes are subtle. Do not invest without benchmark data.",
+    },
+    "LLM_DEPENDENT": {
+        "category" : "Technical Moat",
+        "severity" : "High",
+        "threshold": "Single LLM provider dependency + no abstraction layer",
+        "comment"  : "Agent dependent on single LLM provider — single point of failure. Provider price change or API change breaks the product. Model-agnostic architecture required for resilience.",
+    },
+    "NO_MEMORY_LAYER": {
+        "category" : "Technical Moat",
+        "severity" : "Medium",
+        "threshold": "No memory deps detected + no state management + stars > 500",
+        "comment"  : "No persistent memory detected — agent can only complete single-session tasks. Most enterprise workflows require memory across sessions.",
+    },
 }
 
 
@@ -177,6 +237,80 @@ class EdgeCaseTracker:
                 "LOW_PR_MERGE_RATE",
                 data.get("pr_merge_rate", 0) < self.thresholds["LOW_PR_MERGE_RATE"],
                 f"{data.get('pr_merge_rate')}%",
+            ),
+            (
+                "PLATFORM_ABSORBED",
+                data.get("stars", 0) > 5000
+                and data.get("commit_velocity", 0) < 30
+                and data.get("commits_30d", 0) < 10,
+                f"Stars: {data.get('stars')}, Velocity: {data.get('commit_velocity')}, commits_30d: {data.get('commits_30d')}",
+            ),
+            (
+                "FRAMEWORK_LOCK",
+                data.get("ai_framework") in ["Deep Learning", "Predictive AI"]
+                and not data.get("has_finetuning")
+                and data.get("total_contributors", 0) < 20,
+                f"Framework: {data.get('ai_framework')}",
+            ),
+            (
+                "CLOUD_VENDOR_DEPENDENT",
+                data.get("is_api_wrapper")
+                and data.get("ai_framework") == "None detected",
+                f"Approach: {data.get('ai_approach')}",
+            ),
+            (
+                "NO_INTEGRATION_SURFACE",
+                not data.get("has_cicd")
+                and not data.get("has_custom_model")
+                and data.get("stars", 0) < 500,
+                f"has_cicd: {data.get('has_cicd')}, stars: {data.get('stars')}",
+            ),
+            (
+                "COMMODITIZATION_RISK",
+                self.vertical == "Data Infrastructure"
+                and not data.get("has_custom_model")
+                and not data.get("has_data_pipeline")
+                and data.get("commit_velocity", 0) < 80
+                and data.get("stars", 0) < 35000,
+                f"Stars: {data.get('stars')}, has_custom_model: {data.get('has_custom_model')}",
+            ),
+            (
+                "SIMULATION_ONLY",
+                data.get("has_custom_model")
+                and not data.get("has_cicd")
+                and data.get("stars", 0) > 500
+                and data.get("contributors_per_year", 0) < 5,
+                f"has_custom_model: {data.get('has_custom_model')}, stars: {data.get('stars')}",
+            ),
+            (
+                "HARDWARE_DEPENDENT_LOCK",
+                data.get("total_contributors", 0) < 15
+                and data.get("stars", 0) < 1000
+                and data.get("has_cicd"),
+                f"Contributors: {data.get('total_contributors')}, stars: {data.get('stars')}",
+            ),
+            (
+                "BENCHMARK_MISSING",
+                not data.get("has_tests")
+                and not data.get("has_cicd")
+                and data.get("stars", 0) > 1000,
+                f"has_tests: {data.get('has_tests')}, stars: {data.get('stars')}",
+            ),
+            (
+                "LLM_DEPENDENT",
+                data.get("is_api_wrapper")
+                and data.get("ai_approach") == "API Wrapper"
+                and not data.get("has_custom_model"),
+                f"ai_approach: {data.get('ai_approach')}, is_api_wrapper: {data.get('is_api_wrapper')}",
+            ),
+            (
+                "NO_MEMORY_LAYER",
+                not data.get("has_data_pipeline")
+                and not data.get("has_finetuning")
+                and not data.get("has_custom_model")
+                and data.get("stars", 0) < 5000
+                and data.get("commit_velocity", 0) > 30,
+                f"has_data_pipeline: {data.get('has_data_pipeline')}, stars: {data.get('stars')}",
             ),
         ]
 

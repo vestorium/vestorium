@@ -194,3 +194,11 @@ METRIC_INFO = {
         "note"       : "Deliberately flagged: developer adoption does not equal enterprise revenue. High stars and contributors do not guarantee a monetization path. Always validate the enterprise upsell story separately.",
     },
 }
+# ── LLM Moat Analyzer context ─────────────────────────────────────────
+LLM_MOAT_CONTEXT = (
+    "For Developer Tools AI startups, the key moat question is whether the tool has "
+    "its own API, SDK, or abstraction layer that other developers write against. "
+    "CLI tools embedded in CI/CD pipelines have higher switching costs than GUI tools. "
+    "Look for custom language server implementations, tree-sitter integrations, or "
+    "proprietary code analysis logic — not just OpenAI API calls dressed as a dev tool."
+)

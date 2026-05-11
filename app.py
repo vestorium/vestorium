@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
+import importlib
 from src.github_scraper import GitHubScraper
 from src.scoring_engine import ScoringEngine
 from src.edge_case_tracker import EdgeCaseTracker
@@ -12,6 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# ── Styling ────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
@@ -22,7 +24,6 @@ st.markdown("""
         color: #042433;
     }
 
-    /* Sidebar */
     section[data-testid="stSidebar"] {
         background-color: #042433;
     }
@@ -45,8 +46,13 @@ st.markdown("""
     section[data-testid="stSidebar"] .stButton button:hover {
         background-color: #4a7a6d;
     }
+    section[data-testid="stSidebar"] .stSelectbox select,
+    section[data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] *,
+    section[data-testid="stSidebar"] .stSelectbox span {
+        background-color: #0a3a4f !important;
+        color: #E8F1EE !important;
+    }
 
-    /* Header */
     .v-header {
         display: flex;
         align-items: center;
@@ -67,18 +73,14 @@ st.markdown("""
         margin-top: 0.2rem;
     }
 
-    /* Repo cards */
     .stExpander {
         background-color: #ffffff;
         border: 1px solid #d0ddd8;
         border-radius: 8px;
         margin-bottom: 0.6rem;
     }
-    .stExpander:hover {
-        border-color: #042433;
-    }
+    .stExpander:hover { border-color: #042433; }
 
-    /* Score bar */
     .score-bar-bg {
         background: #d0ddd8;
         border-radius: 4px;
@@ -92,7 +94,6 @@ st.markdown("""
         background: #598D7F;
     }
 
-    /* Dimension row */
     .dim-row {
         display: flex;
         justify-content: space-between;
@@ -107,35 +108,6 @@ st.markdown("""
         color: #042433;
     }
 
-    /* Badges */
-    .badge-strong-buy {
-        background: #598D7F;
-        color: #E8F1EE;
-        padding: 3px 10px;
-        border-radius: 12px;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-    .badge-buy {
-        background: #E8F1EE;
-        color: #042433;
-        border: 1px solid #042433;
-        padding: 3px 10px;
-        border-radius: 12px;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-    .badge-pass {
-        background: #f0f0f0;
-        color: #6B7C8D;
-        border: 1px solid #6B7C8D;
-        padding: 3px 10px;
-        border-radius: 12px;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-
-    /* Flag pill */
     .flag-pill {
         background: #fff3cd;
         color: #856404;
@@ -147,11 +119,20 @@ st.markdown("""
         margin-top: 4px;
     }
 
-    /* Meta text */
     .meta-text {
         font-size: 0.82rem;
         color: #6B7C8D;
         margin-bottom: 0.75rem;
+    }
+
+    .vertical-badge {
+        display: inline-block;
+        background: #042433;
+        color: #E8F1EE;
+        font-size: 0.75rem;
+        padding: 3px 10px;
+        border-radius: 12px;
+        margin-bottom: 1rem;
     }
 
     #MainMenu {visibility: hidden;}
@@ -159,29 +140,44 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ── Config ─────────────────────────────────────────────────────────────────
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
-CSV_PATH     = "data/fintech_raw.csv"
+# ── Vertical registry ──────────────────────────────────────────────────
+VERTICALS = {
+    "Finance / Fintech"  : "src.verticals.fintech",
+    "Developer Tools"    : "src.verticals.developer_tools",
+    "Cybersecurity"      : "src.verticals.cybersecurity",
+    "MLOps"              : "src.verticals.mlops",
+    "Data Infrastructure": "src.verticals.datainfra",
+    "Autonomous Systems" : "src.verticals.autonomous_systems",
+    "Agentic AI"         : "src.verticals.agentic_ai"
+}
 
-# ── Helpers ────────────────────────────────────────────────────────────────
-def load_data():
-    if os.path.exists(CSV_PATH):
-        return pd.read_csv(CSV_PATH)
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
+
+def load_vertical_config(vertical_name):
+    module_path = VERTICALS[vertical_name]
+    return importlib.import_module(f"{module_path}.config")
+
+def get_csv_path(config):
+    return f"data/{config.VERTICAL_SLUG}_raw.csv"
+
+def load_data(config):
+    path = get_csv_path(config)
+    if os.path.exists(path):
+        return pd.read_csv(path)
     return pd.DataFrame()
 
-def save_data(df):
+def save_data(df, config):
     os.makedirs("data", exist_ok=True)
     try:
-        df.to_csv(CSV_PATH, index=False)
+        df.to_csv(get_csv_path(config), index=False)
         return True
     except PermissionError:
         return False
 
-def analyze_repo(url, quick=True):
-    import src.verticals.fintech.config as fintech_config
+def analyze_repo(url, config, quick=True):
     scraper = GitHubScraper(GITHUB_TOKEN, quick=quick)
-    tracker = EdgeCaseTracker(config=fintech_config)
-    scorer  = ScoringEngine(config=fintech_config)
+    tracker = EdgeCaseTracker(config=config)
+    scorer  = ScoringEngine(config=config)
 
     data = scraper.get_repo_info(url)
     if not data:
@@ -202,40 +198,50 @@ def analyze_repo(url, quick=True):
 
     return data, scores
 
-# ── Header ─────────────────────────────────────────────────────────────────
+# ── Header ─────────────────────────────────────────────────────────────
 col_logo, col_title = st.columns([2, 7])
 with col_logo:
-    st.image("Assets/VestoriumLogo.png", width=280)
+    st.image("Assets/VestoriumLogo.png", width=140)
 with col_title:
     st.markdown("""
     <div style="padding-top:0.5rem;">
         <div class="v-title">Vestorium</div>
-        <div class="v-tagline">AI Startup Screener — Technical Due Diligence for Fintech</div>
+        <div class="v-tagline">AI Startup Screener — Technical Due Diligence</div>
     </div>
     """, unsafe_allow_html=True)
 
-st.markdown("<hr style='border:2px solid #042433;margin-bottom:1.5rem;'>", unsafe_allow_html=True)
+st.markdown("<hr style='border:2px solid #042433;margin-bottom:1.5rem;'>",
+            unsafe_allow_html=True)
 
-# ── Sidebar ────────────────────────────────────────────────────────────────
+# ── Sidebar ────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("---")
+    st.markdown("### Vertical")
+    selected_vertical = st.selectbox(
+        "Select vertical",
+        options=list(VERTICALS.keys()),
+        label_visibility="collapsed"
+    )
 
+    config = load_vertical_config(selected_vertical)
+
+    st.markdown("---")
     st.markdown("### Add New Repo")
-    new_url      = st.text_input("GitHub URL", placeholder="https://github.com/owner/repo")
+    new_url      = st.text_input("GitHub URL",
+                                  placeholder="https://github.com/owner/repo")
     quick_toggle = st.checkbox("Quick mode", value=True,
-                               help="Faster but may undercount large repos (300+ contributors)")
+                                help="Faster but may undercount large repos")
 
     if st.button("Analyze", type="primary", use_container_width=True):
         if new_url:
             with st.spinner("Analyzing repo..."):
-                data, scores = analyze_repo(new_url, quick=quick_toggle)
+                data, scores = analyze_repo(new_url, config, quick=quick_toggle)
             if data:
-                df = load_data()
+                df = load_data(config)
                 if not df.empty and "github_url" in df.columns:
                     df = df[df["github_url"] != new_url]
                 df = pd.concat([df, pd.DataFrame([data])], ignore_index=True)
                 df = df.sort_values("total_score", ascending=False)
-                saved = save_data(df)
+                saved = save_data(df, config)
                 if saved:
                     st.success(f"✅ {data['startup_name']} — {data['total_score']}/100 {data['recommendation']}")
                     st.rerun()
@@ -248,7 +254,6 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("### Filters")
-
     rec_filter  = st.multiselect(
         "Recommendation",
         options=["Strong Buy", "Buy", "Pass"],
@@ -258,26 +263,39 @@ with st.sidebar:
     max_flags   = st.slider("Max Flags", 0, 10, 10)
 
     st.markdown("---")
-    df_all = load_data()
-    st.markdown(f"<div style='font-size:0.75rem;color:#6B7C8D;'>Vertical: Finance / Fintech<br>Repos loaded: {len(df_all)}</div>",
-                unsafe_allow_html=True)
+    df_all = load_data(config)
+    st.markdown(
+        f"<div style='font-size:0.75rem;color:#6B7C8D;'>"
+        f"Vertical: {config.VERTICAL_NAME}<br>"
+        f"Repos loaded: {len(df_all)}</div>",
+        unsafe_allow_html=True
+    )
 
-# ── Main list ──────────────────────────────────────────────────────────────
-df = load_data()
+# ── Main list ──────────────────────────────────────────────────────────
+st.markdown(
+    f'<div class="vertical-badge">{config.VERTICAL_NAME}</div>',
+    unsafe_allow_html=True
+)
+
+df = load_data(config)
 
 if df.empty:
-    st.info("No repos analyzed yet. Add a GitHub URL in the sidebar to get started.")
+    st.info(f"No repos analyzed yet for {config.VERTICAL_NAME}. "
+            f"Run test_scraper.py or add a GitHub URL in the sidebar.")
 else:
-    # Apply filters
     if "recommendation" in df.columns:
         df = df[df["recommendation"].isin(rec_filter)]
     if "total_score" in df.columns:
-        df = df[(df["total_score"] >= score_range[0]) & (df["total_score"] <= score_range[1])]
+        df = df[(df["total_score"] >= score_range[0]) &
+                (df["total_score"] <= score_range[1])]
     if "flag_count" in df.columns:
         df = df[df["flag_count"] <= max_flags]
 
-    st.markdown(f"<div style='color:#6B7C8D;font-size:0.85rem;margin-bottom:1rem;'><b>{len(df)}</b> repos matching filters — sorted by score</div>",
-                unsafe_allow_html=True)
+    st.markdown(
+        f"<div style='color:#6B7C8D;font-size:0.85rem;margin-bottom:1rem;'>"
+        f"<b>{len(df)}</b> repos — sorted by score</div>",
+        unsafe_allow_html=True
+    )
 
     dims = [
         ("Technical Execution",    "technical_execution_score",    30),
@@ -300,25 +318,19 @@ else:
         created   = str(row.get("repo_created_date", ""))
         velocity  = float(row.get("commit_velocity", 0))
 
-        badge = {
-            "Strong Buy": '<span class="badge-strong-buy">Strong Buy</span>',
-            "Buy"       : '<span class="badge-buy">Buy</span>',
-            "Pass"      : '<span class="badge-pass">Pass</span>',
-        }.get(rec, '<span class="badge-pass">Pass</span>')
+        flag_label = (f"⚠️ {flags} flag{'s' if flags != 1 else ''}"
+                      if flags > 0 else "✅ Clean")
 
-        flag_label = f"⚠️ {flags} flag{'s' if flags != 1 else ''}" if flags > 0 else "✅ Clean"
-
-        with st.expander(f"{name}   |   {score}/100   |   {rec}   |   {flag_label}"):
-
-            # Metrics row
+        with st.expander(
+            f"{name}   |   {score}/100   |   {rec}   |   {flag_label}"
+        ):
             c1, c2, c3, c4, c5 = st.columns(5)
-            c1.metric("Score",            f"{score}/100")
-            c2.metric("Recommendation",   rec)
-            c3.metric("Stars",            f"{stars:,}")
-            c4.metric("Commit Velocity",  f"{velocity}/mo")
-            c5.metric("Flags",            flags)
+            c1.metric("Score",           f"{score}/100")
+            c2.metric("Recommendation",  rec)
+            c3.metric("Stars",           f"{stars:,}")
+            c4.metric("Commit Velocity", f"{velocity}/mo")
+            c5.metric("Flags",           flags)
 
-            # Meta row
             st.markdown(f"""
             <div class="meta-text">
                 <b>Language:</b> {lang} &nbsp;|&nbsp;
@@ -332,12 +344,26 @@ else:
                 st.markdown(f"🔗 [{url}]({url})")
 
             st.markdown("---")
-
-            # Score breakdown
             st.markdown("**Score Breakdown**")
-            for dim_name, col_name, max_pts in dims:
+
+            # Use vertical-specific max points
+            weights = config.DIMENSION_WEIGHTS
+            dims_display = [
+                ("Technical Execution",    "technical_execution_score",
+                 weights["technical_execution"]),
+                ("Technical Moat",         "technical_moat_score",
+                 weights["technical_moat"]),
+                ("Community Traction",     "community_traction_score",
+                 weights["community_traction"]),
+                ("Team Strength",          "team_strength_score",
+                 weights["team_strength"]),
+                ("Engineering Discipline", "engineering_discipline_score",
+                 weights["engineering_discipline"]),
+            ]
+
+            for dim_name, col_name, max_pts in dims_display:
                 dim_score = int(row.get(col_name, 0))
-                pct       = int((dim_score / max_pts) * 100)
+                pct       = int((dim_score / max_pts) * 100) if max_pts > 0 else 0
                 st.markdown(f"""
                 <div class="dim-row">
                     <span class="dim-label">{dim_name}</span>
@@ -348,7 +374,6 @@ else:
                 </div>
                 """, unsafe_allow_html=True)
 
-            # Flags
             if flags > 0:
                 st.markdown("---")
                 st.markdown("**Edge Case Flags**")
@@ -356,22 +381,26 @@ else:
                 for flag in flag_codes.split(","):
                     flag = flag.strip()
                     if flag and flag != "None" and flag != "nan":
-                        st.markdown(f'<span class="flag-pill">⚠️ {flag}</span>',
-                                    unsafe_allow_html=True)
+                        st.markdown(
+                            f'<span class="flag-pill">⚠️ {flag}</span>',
+                            unsafe_allow_html=True
+                        )
 
-            # Re-analyze
             st.markdown("")
             if st.button("🔄 Re-analyze", key=f"re_{name}_{score}"):
                 with st.spinner(f"Re-analyzing {name}..."):
-                    new_data, _ = analyze_repo(url, quick=quick_toggle)
+                    new_data, _ = analyze_repo(url, config, quick=quick_toggle)
                 if new_data:
-                    full_df = load_data()
+                    full_df = load_data(config)
                     full_df = full_df[full_df["github_url"] != url]
-                    full_df = pd.concat([full_df, pd.DataFrame([new_data])], ignore_index=True)
+                    full_df = pd.concat(
+                        [full_df, pd.DataFrame([new_data])],
+                        ignore_index=True
+                    )
                     full_df = full_df.sort_values("total_score", ascending=False)
-                    saved = save_data(full_df)
+                    saved = save_data(full_df, config)
                     if saved:
                         st.success("Re-analyzed successfully!")
                         st.rerun()
                     else:
-                        st.error("Could not save — close Excel if open and try again.")
+                        st.error("Could not save — close Excel if open.")

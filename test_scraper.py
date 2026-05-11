@@ -12,6 +12,10 @@ AVAILABLE_VERTICALS = {
     "fintech"          : "src.verticals.fintech",
     "developer_tools"  : "src.verticals.developer_tools",
     "cybersecurity"    : "src.verticals.cybersecurity",
+    "mlops"            : "src.verticals.mlops",
+    "datainfra"        : "src.verticals.datainfra",
+    "autonomous_systems" : "src.verticals.autonomous_systems",
+    "agentic_ai" : "src.verticals.agentic_ai"
 }
 
 def load_vertical(slug):
@@ -30,7 +34,7 @@ vertical_slug = sys.argv[1] if len(sys.argv) > 1 else "fintech"
 config, SAMPLE_REPOS = load_vertical(vertical_slug)
 
 TOKEN      = os.getenv("GITHUB_TOKEN", "")
-quick_mode = True
+quick_mode = False
 
 tracker      = EdgeCaseTracker(config=config)
 scorer       = ScoringEngine(config=config)
@@ -84,7 +88,7 @@ print(f"{'Startup':<25} {'Score':>6} {'Recommendation':<15} {'Flags':>5}")
 print("-" * 55)
 for r in sorted(results, key=lambda x: x.get('total_score', 0), reverse=True):
     name = r.get('startup_name') or 'Unknown'
-    print(f"{name:<25} {r['total_score']:>5}/100  {r['recommendation']:<15} {r['flag_count']:>5} flags")
+    print(f"{name:<25} {r['total_score']:>5}/100  {r['recommendation']:<15} {r['flag_codes'] if r['flag_codes'] else 'None'}")
 
 # Save — separate CSV per vertical
 os.makedirs("data", exist_ok=True)

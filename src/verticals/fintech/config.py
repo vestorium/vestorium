@@ -133,3 +133,12 @@ METRIC_INFO = {
         "note"       : "Sampled from most recent 100 PRs only.",
     },
 }
+# ── LLM Moat Analyzer context ─────────────────────────────────────────
+LLM_MOAT_CONTEXT = (
+    "For Fintech AI startups, the key moat question is whether the team has built "
+    "proprietary risk models, pricing engines, or fraud detection logic — or whether "
+    "they are simply wrapping OpenAI/Anthropic APIs in a financial UI. Custom model "
+    "code (train.py, model.py) combined with a data pipeline signals a real moat. "
+    "Issue resolution rate and maintenance discipline are strong proxies for "
+    "production-grade reliability, which is non-negotiable in financial services."
+)
