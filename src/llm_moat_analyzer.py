@@ -50,11 +50,16 @@ Repository data:
 
 Return ONLY valid JSON with exactly these keys — no preamble, no markdown:
 {{
-  "build_classification": "Custom model" | "Fine-tune" | "API wrapper" | "Undetermined",
-  "moat_type": "Data moat" | "Model moat" | "Workflow moat" | "No identifiable moat",
+  "build_classification": "one of: Custom model | Fine-tune | API wrapper | Undetermined",
+  "moat_type": "one of: Data moat | Model moat | Workflow moat | No identifiable moat",
   "rationale": "2-3 sentences explaining the moat assessment",
   "analyst_prompts": ["question 1", "question 2", "question 3"]
 }}
+
+CRITICAL FIELD DEFINITIONS:
+- build_classification: HOW the team built the AI — are they training custom models, fine-tuning, or just calling APIs? Must be one of: Custom model, Fine-tune, API wrapper, Undetermined.
+- moat_type: WHAT makes the product defensible — data, model, workflow, or nothing? Must be one of: Data moat, Model moat, Workflow moat, No identifiable moat.
+- These are TWO DIFFERENT fields. Never put a moat type value in build_classification.
 
 Rules:
 - analyst_prompts must be specific to this repo — not generic questions
