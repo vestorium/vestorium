@@ -28,8 +28,8 @@
             top: 0;
             z-index: 100;
             background: var(--sage);
-            display: flex;
-            justify-content: space-between;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
             align-items: center;
             padding: 16px 48px;
             border-bottom: 1px solid #d0ddd8;
@@ -38,17 +38,18 @@
         .nav-logo {
             display: flex;
             align-items: center;
-            gap: 10px;
+            justify-self: start;
         }
 
         .nav-logo img {
-            height: 36px;
+            height: 45px;
         }
 
         .nav-links {
             display: flex;
             gap: 32px;
             list-style: none;
+            justify-self: center;
         }
 
         .nav-links a {
@@ -69,6 +70,7 @@
             border-radius: 6px;
             text-decoration: none;
             transition: background 0.2s;
+            justify-self: end;
         }
 
         .nav-cta:hover { background: #4a7a6d; }
@@ -92,7 +94,7 @@
         .hero p {
             font-size: 16px;
             color: var(--slate);
-            max-width: 520px;
+            max-width: 560px;
             margin: 0 auto 36px;
             line-height: 1.7;
             font-weight: 300;
@@ -132,7 +134,7 @@
             color: var(--sage);
         }
 
-        /* ── Sector Coverage ────────────────────────────── */
+        /* ── Sector Categories ──────────────────────────── */
         .sector-coverage {
             background: var(--navy);
             padding: 0 48px 48px;
@@ -160,18 +162,9 @@
             padding: 6px 16px;
             border-radius: 20px;
             font-weight: 500;
-        }
-
-        .sector-tag.active {
-            background: rgba(89,141,127,0.15);
+            background: rgba(89,141,127,0.12);
             color: var(--teal);
-            border: 1px solid var(--teal);
-        }
-
-        .sector-tag.soon {
-            background: transparent;
-            color: var(--slate);
-            border: 1px solid rgba(107,124,141,0.3);
+            border: 1px solid rgba(89,141,127,0.4);
         }
 
         /* ── Section wrapper ────────────────────────────── */
@@ -179,132 +172,12 @@
             padding: 64px 48px;
         }
 
-        .section-alt { background: var(--sage); }
-
         .section-label {
             font-size: 11px;
             color: var(--slate);
             text-transform: uppercase;
             letter-spacing: 1.5px;
             margin-bottom: 32px;
-        }
-
-        /* ── Methodology ────────────────────────────────── */
-        .methodology-grid {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 16px;
-        }
-
-        .methodology-card {
-            background: var(--white);
-            border: 1px solid #d0ddd8;
-            border-radius: 10px;
-            padding: 20px;
-        }
-
-        .methodology-card .points {
-            font-family: 'DM Mono', monospace;
-            font-size: 28px;
-            font-weight: 500;
-            color: var(--teal);
-            margin-bottom: 8px;
-        }
-
-        .methodology-card .dim-name {
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--navy);
-            margin-bottom: 6px;
-        }
-
-        .methodology-card .dim-detail {
-            font-size: 12px;
-            color: var(--slate);
-            line-height: 1.5;
-        }
-
-        /* ── Sample Results ─────────────────────────────── */
-        .results-table {
-            width: 100%;
-            border-collapse: collapse;
-            border: 1px solid #d0ddd8;
-            border-radius: 10px;
-            overflow: hidden;
-            font-size: 13px;
-        }
-
-        .results-table th {
-            background: var(--sage);
-            padding: 10px 16px;
-            text-align: left;
-            font-size: 11px;
-            font-weight: 500;
-            color: var(--slate);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .results-table td {
-            padding: 14px 16px;
-            border-top: 1px solid #e8f0ed;
-            color: var(--navy);
-        }
-
-        .verdict-strong-buy {
-            background: rgba(89,141,127,0.12);
-            color: var(--teal);
-            padding: 3px 10px;
-            border-radius: 10px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-
-        .verdict-buy {
-            background: rgba(4,36,51,0.08);
-            color: var(--navy);
-            padding: 3px 10px;
-            border-radius: 10px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-
-        .verdict-pass {
-            background: rgba(107,124,141,0.1);
-            color: var(--slate);
-            padding: 3px 10px;
-            border-radius: 10px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-
-        .score-bar-wrap {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .score-bar-bg {
-            width: 60px;
-            height: 4px;
-            background: #d0ddd8;
-            border-radius: 2px;
-            overflow: hidden;
-        }
-
-        .score-bar-fill {
-            height: 4px;
-            background: var(--teal);
-            border-radius: 2px;
-        }
-
-        .score-bar-fill.pass { background: var(--slate); }
-
-        .results-disclaimer {
-            font-size: 12px;
-            color: var(--slate);
-            margin-top: 12px;
-            font-style: italic;
         }
 
         /* ── About + CTA ────────────────────────────────── */
@@ -333,14 +206,7 @@
             color: var(--sage);
             font-size: 18px;
             font-weight: 500;
-            margin-bottom: 10px;
-        }
-
-        .cta-box p {
-            color: var(--slate);
-            font-size: 13px;
             margin-bottom: 24px;
-            line-height: 1.6;
         }
 
         /* ── Footer ─────────────────────────────────────── */
@@ -356,6 +222,44 @@
             font-size: 12px;
             color: var(--slate);
         }
+
+        footer a {
+            font-size: 12px;
+            color: var(--slate);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        footer a:hover { color: var(--sage); }
+
+        .footer-links {
+            display: flex;
+            gap: 24px;
+            align-items: center;
+        }
+
+        /* ── Responsive ─────────────────────────────────── */
+        @media (max-width: 768px) {
+            nav {
+                grid-template-columns: 1fr auto;
+                padding: 14px 24px;
+                gap: 12px;
+            }
+            .nav-links { display: none; }
+            .hero { padding: 56px 24px 48px; }
+            .hero h1 { font-size: 28px; }
+            .hero p { font-size: 15px; }
+            .hero-buttons { flex-direction: column; align-items: center; }
+            .section { padding: 48px 24px; }
+            .sector-coverage { padding: 0 24px 40px; }
+            .about-cta-grid { grid-template-columns: 1fr; gap: 32px; }
+            footer {
+                flex-direction: column;
+                gap: 12px;
+                text-align: center;
+                padding: 20px 24px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -366,9 +270,8 @@
             <img src="Assets/VestoriumLogo.png" alt="Vestorium">
         </div>
         <ul class="nav-links">
-            <li><a href="#methodology">Methodology</a></li>
-            <li><a href="#results">Results</a></li>
             <li><a href="#about">About</a></li>
+            <li><a href="#">Blog</a></li>
         </ul>
         <a href="https://vestorium.streamlit.app" target="_blank" class="nav-cta">Try live demo →</a>
     </nav>
@@ -376,107 +279,25 @@
     <!-- Hero -->
     <section class="hero">
         <h1>From code to conviction</h1>
-        <p>Vestorium translates a startup's GitHub activity into structured investment signals — giving analysts a repeatable, data-driven foundation for technical due diligence.</p>
+        <p>Vestorium analyses public GitHub repositories, translating a startup's code activity into structured investment signals — giving analysts a repeatable, data-driven foundation for technical due diligence.</p>
         <div class="hero-buttons">
             <a href="https://vestorium.streamlit.app" target="_blank" class="btn-primary">Try live demo →</a>
-            <a href="#methodology" class="btn-secondary">View methodology</a>
+            <a href="#about" class="btn-secondary">Learn more</a>
         </div>
     </section>
 
-    <!-- Sector Coverage -->
+    <!-- Sector Categories -->
     <section class="sector-coverage">
-        <p class="sector-label">Sector Coverage</p>
+        <p class="sector-label">Sector Categories</p>
         <div class="sector-tags">
-            <span class="sector-tag active">Fintech ✓</span>
-            <span class="sector-tag soon">Developer Tools — coming soon</span>
-            <span class="sector-tag soon">Legal Tech — coming soon</span>
+            <span class="sector-tag">Fintech</span>
+            <span class="sector-tag">Developer Tools</span>
+            <span class="sector-tag">Cyber Security</span>
+            <span class="sector-tag">ML Ops</span>
+            <span class="sector-tag">Data Infrastructure</span>
+            <span class="sector-tag">Agentic AI</span>
+            <span class="sector-tag">Autonomous Systems</span>
         </div>
-    </section>
-
-    <!-- Methodology -->
-    <section class="section" id="methodology">
-        <p class="section-label">Scoring methodology — 100 points total</p>
-        <div class="methodology-grid">
-            <div class="methodology-card">
-                <div class="points">30</div>
-                <div class="dim-name">Technical execution</div>
-                <div class="dim-detail">Commit velocity, release frequency, repo freshness</div>
-            </div>
-            <div class="methodology-card">
-                <div class="points">30</div>
-                <div class="dim-name">Technical moat</div>
-                <div class="dim-detail">Custom model code, data pipeline, AI approach</div>
-            </div>
-            <div class="methodology-card">
-                <div class="points">20</div>
-                <div class="dim-name">Community traction</div>
-                <div class="dim-detail">Stars, fork ratio, issue resolution, PR merge rate</div>
-            </div>
-            <div class="methodology-card">
-                <div class="points">15</div>
-                <div class="dim-name">Team strength</div>
-                <div class="dim-detail">Contributors per year, key person risk, capability signals</div>
-            </div>
-            <div class="methodology-card">
-                <div class="points">5</div>
-                <div class="dim-name">Engineering discipline</div>
-                <div class="dim-detail">CI/CD pipeline, test coverage, license</div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Sample Results -->
-    <section class="section section-alt" id="results">
-        <p class="section-label">Sample screening results — fintech vertical</p>
-        <table class="results-table">
-            <thead>
-                <tr>
-                    <th>Startup</th>
-                    <th>Score</th>
-                    <th>Verdict</th>
-                    <th>Flags</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><strong>feast</strong></td>
-                    <td><div class="score-bar-wrap"><span>80</span><div class="score-bar-bg"><div class="score-bar-fill" style="width:80%"></div></div></div></td>
-                    <td><span class="verdict-strong-buy">Strong Buy</span></td>
-                    <td>1 flag</td>
-                </tr>
-                <tr>
-                    <td><strong>spaCy</strong></td>
-                    <td><div class="score-bar-wrap"><span>76</span><div class="score-bar-bg"><div class="score-bar-fill" style="width:76%"></div></div></div></td>
-                    <td><span class="verdict-buy">Buy</span></td>
-                    <td>0 flags</td>
-                </tr>
-                <tr>
-                    <td><strong>qlib</strong></td>
-                    <td><div class="score-bar-wrap"><span>70</span><div class="score-bar-bg"><div class="score-bar-fill" style="width:70%"></div></div></div></td>
-                    <td><span class="verdict-buy">Buy</span></td>
-                    <td>1 flag</td>
-                </tr>
-                <tr>
-                    <td><strong>FinRL</strong></td>
-                    <td><div class="score-bar-wrap"><span>62</span><div class="score-bar-bg"><div class="score-bar-fill" style="width:62%"></div></div></div></td>
-                    <td><span class="verdict-buy">Buy</span></td>
-                    <td>2 flags</td>
-                </tr>
-                <tr>
-                    <td><strong>backtesting.py</strong></td>
-                    <td><div class="score-bar-wrap"><span>38</span><div class="score-bar-bg"><div class="score-bar-fill pass" style="width:38%"></div></div></div></td>
-                    <td><span class="verdict-pass">Pass</span></td>
-                    <td>4 flags</td>
-                </tr>
-                <tr>
-                    <td><strong>pyfinance</strong></td>
-                    <td><div class="score-bar-wrap"><span>18</span><div class="score-bar-bg"><div class="score-bar-fill pass" style="width:18%"></div></div></div></td>
-                    <td><span class="verdict-pass">Pass</span></td>
-                    <td>8 flags</td>
-                </tr>
-            </tbody>
-        </table>
-        <p class="results-disclaimer">Pass verdicts are shown intentionally — credible screening shows both sides.</p>
     </section>
 
     <!-- About + CTA -->
@@ -487,8 +308,7 @@
                 <p class="about-text">Built by a financial services professional with 8+ years of industry experience, including 5+ years in PE and VC. Vestorium automates technical due diligence and aims to deliver analytical insights across multiple dimensions of investment evaluation.</p>
             </div>
             <div class="cta-box">
-                <h3>Analyze any fintech repo</h3>
-                <p>Paste a GitHub URL and get a full investment score in under 60 seconds.</p>
+                <h3>Analyze any startup repo</h3>
                 <a href="https://vestorium.streamlit.app" target="_blank" class="btn-primary">Try live demo →</a>
             </div>
         </div>
@@ -497,7 +317,11 @@
     <!-- Footer -->
     <footer>
         <span>© 2026 Vestorium</span>
-        <span>vestorium.in</span>
+        <div class="footer-links">
+            <a href="#">Blog</a>
+            <a href="https://github.com/vestorium/vestorium" target="_blank">GitHub</a>
+            <span>vestorium.in</span>
+        </div>
     </footer>
 
 </body>

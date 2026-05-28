@@ -10,7 +10,8 @@ st.set_page_config(
     page_title="Vestorium AI Startup Screener",
     page_icon="Assets/VestoriumLogo.png",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="collapsed",
+    menu_items={}
 )
 
 st.markdown("""
@@ -49,6 +50,15 @@ st.markdown("""
         margin-bottom: 1rem;
     }
 
+    /* ── Input + select height normalisation ── */
+    div[data-testid="stTextInput"] input,
+    div[data-testid="stSelectbox"] > div > div {
+        padding-top: 0.55rem !important;
+        padding-bottom: 0.55rem !important;
+        min-height: 2.6rem !important;
+        font-size: 0.9rem !important;
+    }
+
     /* ── Repo cards ── */
     .stExpander {
         background-color: #ffffff !important;
@@ -64,15 +74,14 @@ st.markdown("""
     .score-bar-bg {
         background: #d0ddd8;
         border-radius: 4px;
-        height: 8px;
+        height: 10px;
         margin-top: 4px;
         margin-bottom: 10px;
     }
-    .score-bar-fill {
-        height: 8px;
-        border-radius: 4px;
-        background: #598D7F;
-    }
+    .score-bar-fill         { height: 10px; border-radius: 4px; background: #598D7F; }
+    .score-bar-fill.green   { background: #2e7d5e; }
+    .score-bar-fill.amber   { background: #e07b00; }
+    .score-bar-fill.red-bar { background: #c0392b; }
 
     /* ── Dimension rows ── */
     .dim-row {
@@ -94,12 +103,14 @@ st.markdown("""
         background: #fff3cd;
         color: #856404;
         padding: 2px 8px;
-        border-radius: 10px;
+        border-radius: 6px;
         font-size: 0.75rem;
-        margin-right: 4px;
+        margin-right: 3px;
+        margin-top: 2px;
         display: inline-block;
-        margin-top: 4px;
+        white-space: nowrap;
     }
+    .flag-row { line-height: 2; }
 
     /* ── New Analysis badge ── */
     .new-badge {
@@ -137,7 +148,21 @@ st.markdown("""
         padding-left: 1.5rem;
     }
 
-    /* ── Analyze button ── */
+    /* ── Metric refinement ── */
+    div[data-testid="stMetric"] label {
+        font-size: 0.78rem !important;
+        font-weight: 600 !important;
+        color: #6B7C8D !important;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
+        font-size: 1.35rem !important;
+        font-weight: 500 !important;
+        color: #042433 !important;
+    }
+
+    /* ── Buttons ── */
     div[data-testid="stButton"] button[kind="primary"] {
         background-color: #598D7F !important;
         border: none !important;
@@ -148,10 +173,67 @@ st.markdown("""
     div[data-testid="stButton"] button[kind="primary"]:hover {
         background-color: #4a7a6d !important;
     }
+    div[data-testid="stButton"] button {
+        padding: 0.5rem 1rem !important;
+        font-size: 0.85rem !important;
+        border-radius: 6px !important;
+        width: 100% !important;
+    }
 
+    /* ── Expander label ── */
+    div[data-testid="stExpander"] details summary p,
+    div[data-testid="stExpander"] summary p {
+        font-size: 1rem !important;
+        font-weight: 600 !important;
+    }
+
+    /* ── Dropdown overflow ── */
+    div[data-testid="stSelectbox"] {min-width: 250px !important;}
+    div[data-testid="stSelectbox"] > div {min-width: 250px !important;}
+    div[data-testid="stSelectbox"] > div > div {
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: unset !important;
+        height: auto !important;
+        min-height: 2.6rem !important;
+    }
+
+    /* ── Hide Streamlit chrome ── */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
+    header[data-testid="stHeader"] {background-color: #E8F1EE !important; border: none !important; box-shadow: none !important;}
+    header[data-testid="stHeader"] > * {visibility: hidden;}
     section[data-testid="stSidebar"] {display: none;}
+
+    /* ── Background fill — eliminate white strips ── */
+    .stApp {background-color: #E8F1EE !important;}
+    [data-testid="stAppViewContainer"] {background-color: #E8F1EE !important;}
+    [data-testid="stMain"] {background-color: #E8F1EE !important;}
+    section[data-testid="stMain"] > div:first-child {background-color: #E8F1EE !important;}
+    div[data-testid="stVerticalBlock"] {background-color: transparent !important;}
+    div[data-testid="block-container"] {background-color: #E8F1EE !important; padding-top: 0 !important;}
+    .stApp > header + div {background-color: #E8F1EE !important;}
+
+    /* ── Force light mode regardless of system preference ── */
+    @media (prefers-color-scheme: dark) {
+        html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
+            background-color: #E8F1EE !important;
+            color: #042433 !important;
+        }
+        [data-testid="stHeader"] {
+            background-color: #E8F1EE !important;
+        }
+        .stApp {
+            background-color: #E8F1EE !important;
+        }
+    }
+
+    /* ── Mobile ── */
+    @media (max-width: 768px) {
+        .v-controlbar { padding: 0.5rem; }
+        div[data-testid="stHorizontalBlock"] { flex-wrap: wrap !important; }
+        div[data-testid="stHorizontalBlock"] > div { min-width: 100% !important; }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -215,14 +297,16 @@ def analyze_repo(url, config, quick=True):
 
 # ── Navbar ─────────────────────────────────────────────────────────────
 st.markdown('<div class="v-navbar">', unsafe_allow_html=True)
-col_logo, col_spacer = st.columns([1, 11])
+col_logo, col_spacer, col_blog = st.columns([2, 9, 1])
 with col_logo:
-    st.image("Assets/VestoriumLogo.png", width=110)
+    st.image("Assets/VestoriumLogo.png", width=182)
+with col_blog:
+    st.markdown('<a href="#" style="font-weight:700;font-size:1.1rem;color:#042433;text-decoration:none;">Blog</a>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
 # ── Control bar ────────────────────────────────────────────────────────
 st.markdown('<div class="v-controlbar">', unsafe_allow_html=True)
-t1, t2, t3, t4 = st.columns([2, 4, 1.2, 1])
+t1, t2, t3, t4 = st.columns([2.5, 5.5, 1.2, 1.8])
 
 with t1:
     selected_vertical = st.selectbox(
@@ -331,150 +415,150 @@ else:
         is_new   = (url == new_repo_url and new_repo_url != "")
         new_tag  = "   🟢 New Analysis" if is_new else ""
 
-        with st.expander(
-            f"{name}   |   {score}/100   |   {rec}   |   {flag_label}{new_tag}",
-            expanded=is_new
-        ):
-            if is_new:
-                st.markdown(
-                    '<span class="new-badge">✦ New Analysis</span>',
-                    unsafe_allow_html=True
-                )
-
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Score",           f"{score}/100")
-            c2.metric("Recommendation",  rec)
-            c3.metric("Stars",           f"{stars:,}")
-            c4.metric("Commit Velocity", f"{velocity}/mo")
-
-            st.markdown(f"""
-            <div class="meta-text">
-                <b>Language:</b> {lang} &nbsp;|&nbsp;
-                <b>AI Framework:</b> {framework} &nbsp;|&nbsp;
-                <b>Repo Age:</b> {age:.0f} months &nbsp;|&nbsp;
-                <b>Created:</b> {created}
-            </div>
-            """, unsafe_allow_html=True)
-
-            if url and url != "nan":
-                st.markdown(f"🔗 [{url}]({url})")
-
-            st.markdown("---")
-
-            has_moat = f"moat_{url}" in st.session_state
-
-            if has_moat:
-                left_col, right_col = st.columns([1, 1])
-            else:
-                left_col = st.container()
-
-            with left_col:
-                st.markdown("**Score Breakdown**")
-                for dim_name, col_name, max_pts in dims_display:
-                    dim_score = int(row.get(col_name, 0))
-                    pct       = int((dim_score / max_pts) * 100) if max_pts > 0 else 0
-                    st.markdown(f"""
-                    <div class="dim-row">
-                        <span class="dim-label">{dim_name}</span>
-                        <span class="dim-score">{dim_score}/{max_pts}</span>
-                    </div>
-                    <div class="score-bar-bg">
-                        <div class="score-bar-fill" style="width:{pct}%"></div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-            if has_moat:
-                with right_col:
-                    moat      = st.session_state[f"moat_{url}"]
-                    build     = moat.get("build_classification", "Undetermined")
-                    moat_type = moat.get("moat_type", "Unknown")
-                    rationale = moat.get("rationale", "")
-                    prompts   = moat.get("analyst_prompts", [])
-
-                    build_color = (
-                        "#2e7d5e" if build in ["Custom model", "Fine-tune"]
-                        else "#e07b00" if build == "API wrapper"
-                        else "#6B7C8D"
-                    )
-                    moat_color = (
-                        "#2e7d5e" if moat_type in ["Data moat", "Model moat"]
-                        else "#e07b00" if moat_type == "Workflow moat"
-                        else "#c0392b"
-                    )
-
-                    st.markdown('<div class="moat-divider">', unsafe_allow_html=True)
-                    st.markdown("**Moat Analysis**")
+        sc_exp, sc_re, sc_moat = st.columns([6, 1.5, 1.8])
+        with sc_exp:
+            with st.expander(
+                f"{name}   |   {score}/100   |   {rec}   |   {flag_label}{new_tag}",
+                expanded=is_new
+            ):
+                if is_new:
                     st.markdown(
-                        f'<span style="background:{build_color};color:white;'
-                        f'padding:4px 12px;border-radius:12px;font-weight:bold;'
-                        f'font-size:0.85rem">{build}</span>'
-                        f'&nbsp;&nbsp;'
-                        f'<span style="background:{moat_color};color:white;'
-                        f'padding:4px 12px;border-radius:12px;'
-                        f'font-size:0.8rem">{moat_type}</span>',
+                        '<span class="new-badge">✦ New Analysis</span>',
                         unsafe_allow_html=True
                     )
-                    st.markdown("")
-                    st.markdown(f"**Assessment:** {rationale}")
-                    if prompts:
-                        st.markdown("**Analyst Prompts:**")
-                        for i, q in enumerate(prompts, 1):
-                            st.markdown(f"{i}. {q}")
-                    st.markdown('</div>', unsafe_allow_html=True)
 
-            if flags > 0:
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric("Score",           f"{score}/100")
+                c2.metric("Recommendation",  rec)
+                c3.metric("Stars",           f"{stars:,}")
+                c4.metric("Commit Velocity", f"{velocity}/mo")
+
+                url_inline = (
+                    f' &nbsp;|&nbsp; 🔗 <a href="{url}" target="_blank" '
+                    f'style="color:#598D7F;text-decoration:none;">{url}</a>'
+                ) if url and url != "nan" else ""
+                st.markdown(f"""
+                <div class="meta-text">
+                    <b>Language:</b> {lang} &nbsp;|&nbsp;
+                    <b>AI Framework:</b> {framework} &nbsp;|&nbsp;
+                    <b>Repo Age:</b> {age:.0f} months &nbsp;|&nbsp;
+                    <b>Created:</b> {created}{url_inline}
+                </div>
+                """, unsafe_allow_html=True)
+
                 st.markdown("---")
-                st.markdown("**Edge Case Flags**")
-                flag_codes = str(row.get("flag_codes", ""))
-                for flag in flag_codes.split(","):
-                    flag = flag.strip()
-                    if flag and flag != "None" and flag != "nan":
+
+                has_moat = f"moat_{url}" in st.session_state
+
+                if has_moat:
+                    left_col, right_col = st.columns([1, 1])
+                else:
+                    left_col = st.container()
+
+                with left_col:
+                    st.markdown("**Score Breakdown**")
+                    for dim_name, col_name, max_pts in dims_display:
+                        dim_score = int(row.get(col_name, 0))
+                        pct       = int((dim_score / max_pts) * 100) if max_pts > 0 else 0
+                        bar_class = "green" if pct >= 70 else "amber" if pct >= 50 else "red-bar"
+                        st.markdown(f"""
+                        <div class="dim-row">
+                            <span class="dim-label">{dim_name}</span>
+                            <span class="dim-score">{dim_score}/{max_pts}</span>
+                        </div>
+                        <div class="score-bar-bg">
+                            <div class="score-bar-fill {bar_class}" style="width:{pct}%"></div>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                if has_moat:
+                    with right_col:
+                        moat      = st.session_state[f"moat_{url}"]
+                        build     = moat.get("build_classification", "Undetermined")
+                        moat_type = moat.get("moat_type", "Unknown")
+                        rationale = moat.get("rationale", "")
+                        prompts   = moat.get("analyst_prompts", [])
+
+                        build_color = (
+                            "#2e7d5e" if build in ["Custom model", "Fine-tune"]
+                            else "#e07b00" if build == "API wrapper"
+                            else "#6B7C8D"
+                        )
+                        moat_color = (
+                            "#2e7d5e" if moat_type in ["Data moat", "Model moat"]
+                            else "#e07b00" if moat_type == "Workflow moat"
+                            else "#c0392b"
+                        )
+
+                        st.markdown('<div class="moat-divider">', unsafe_allow_html=True)
+                        st.markdown("**Moat Analysis**")
                         st.markdown(
-                            f'<span class="flag-pill">⚠️ {flag}</span>',
+                            f'<span style="background:{build_color};color:white;'
+                            f'padding:3px 10px;border-radius:6px;font-weight:500;'
+                            f'font-size:0.8rem;letter-spacing:0.2px">{build}</span>'
+                            f'&nbsp;&nbsp;'
+                            f'<span style="border:1px solid {moat_color};color:{moat_color};'
+                            f'padding:3px 10px;border-radius:6px;'
+                            f'font-size:0.78rem">{moat_type}</span>',
                             unsafe_allow_html=True
                         )
+                        st.markdown("")
+                        st.markdown(f"**Assessment:** {rationale}")
+                        if prompts:
+                            st.markdown("**Analyst Prompts:**")
+                            for i, q in enumerate(prompts, 1):
+                                st.markdown(f"{i}. {q}")
+                        st.markdown('</div>', unsafe_allow_html=True)
 
-            st.markdown("")
-            cb1, cb2, cb3 = st.columns([1.5, 1.5, 5])
+                if flags > 0:
+                    st.markdown("---")
+                    st.markdown("**Edge Case Flags**")
+                    flag_codes = str(row.get("flag_codes", ""))
+                    pills = "".join(
+                        f'<span class="flag-pill">⚠️ {f.strip()}</span>'
+                        for f in flag_codes.split(",")
+                        if f.strip() and f.strip() not in ("None", "nan")
+                    )
+                    st.markdown(f'<div class="flag-row">{pills}</div>', unsafe_allow_html=True)
 
-            with cb1:
-                if st.button("🔄 Re-analyze", key=f"re_{name}_{score}"):
-                    with st.spinner(f"Re-analyzing {name}..."):
-                        new_data, _ = analyze_repo(url, config, quick=quick_toggle)
-                    if new_data:
-                        full_df = load_data(config)
-                        full_df = full_df[full_df["github_url"] != url]
-                        full_df = pd.concat(
-                            [full_df, pd.DataFrame([new_data])],
-                            ignore_index=True
-                        )
-                        full_df = full_df.sort_values("total_score", ascending=False)
-                        saved = save_data(full_df, config)
-                        if saved:
-                            st.success("Re-analyzed successfully!")
-                            st.rerun()
-                        else:
-                            st.error("Could not save — close Excel if open.")
+        with sc_re:
+            if st.button("🔄 Re-analyze", key=f"re_{name}_{score}"):
+                with st.spinner(f"Re-analyzing {name}..."):
+                    new_data, _ = analyze_repo(url, config, quick=quick_toggle)
+                if new_data:
+                    full_df = load_data(config)
+                    full_df = full_df[full_df["github_url"] != url]
+                    full_df = pd.concat(
+                        [full_df, pd.DataFrame([new_data])],
+                        ignore_index=True
+                    )
+                    full_df = full_df.sort_values("total_score", ascending=False)
+                    saved = save_data(full_df, config)
+                    if saved:
+                        st.success("Re-analyzed successfully!")
+                        st.rerun()
+                    else:
+                        st.error("Could not save — close Excel if open.")
 
-            with cb2:
-                if st.button("🧠 Run Moat Analysis", key=f"moat_{name}_{score}"):
-                    with st.spinner(f"Running moat analysis for {name}..."):
-                        try:
-                            from src.llm_moat_analyzer import run_moat_analysis
-                            from src.github_scraper import GitHubScraper
-                            import os
-                            token = os.getenv("GITHUB_TOKEN", "")
-                            scraper = GitHubScraper(token=token, quick=True)
-                            owner, repo_name = url.replace(
-                                "https://github.com/", ""
-                            ).split("/")[:2]
-                            repo_data = {
-                                "readme"    : scraper.get_readme(owner, repo_name),
-                                "code_files": scraper.get_named_code_files(owner, repo_name),
-                                "recent_prs": scraper.get_recent_prs(owner, repo_name)
-                            }
-                            moat_result = run_moat_analysis(url, repo_data, config)
-                            st.session_state[f"moat_{url}"] = moat_result["result"]
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Moat analysis failed: {e}")
+        with sc_moat:
+            if st.button("🧠 Run Moat Analysis", key=f"moat_{name}_{score}"):
+                with st.spinner(f"Running moat analysis for {name}..."):
+                    try:
+                        from src.llm_moat_analyzer import run_moat_analysis
+                        from src.github_scraper import GitHubScraper
+                        import os
+                        token = os.getenv("GITHUB_TOKEN", "")
+                        scraper = GitHubScraper(token=token, quick=True)
+                        owner, repo_name = url.replace(
+                            "https://github.com/", ""
+                        ).split("/")[:2]
+                        repo_data = {
+                            "readme"    : scraper.get_readme(owner, repo_name),
+                            "code_files": scraper.get_named_code_files(owner, repo_name),
+                            "recent_prs": scraper.get_recent_prs(owner, repo_name)
+                        }
+                        moat_result = run_moat_analysis(url, repo_data, config)
+                        st.session_state[f"moat_{url}"] = moat_result["result"]
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Moat analysis failed: {e}")
