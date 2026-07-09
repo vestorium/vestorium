@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cap Table &amp; SHA Simulator — Vestorium Tools</title>
+<meta name="description" content="Stress-test shareholders' agreement covenants: anti-dilution, pro-rata, pay-to-play, drag/tag, and exit waterfalls across up, down and structured rounds.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tools.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+
+<header class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="/">Vestorium<span> · Tools</span></a>
+    <nav class="nav-links">
+      <a href="/tools/">TOOLS</a>
+      <a href="captable-simulator.html" class="active">CAP TABLE</a>
+      <a href="fund-model.html">FUND MODEL</a>
+      <a href="portfolio-dashboard.html">PORTFOLIO</a>
+    </nav>
+  </div>
+</header>
+
+<section class="tool-hero">
+  <div class="wrap">
+    <div class="eyebrow">SHA covenant stress-test · All figures ₹ Cr · Computes locally</div>
+    <h1>Cap Table &amp; SHA Simulator</h1>
+    <p>Select the rights you hold, define the next round, and see what actually happens to your stake, your protections, and your exit proceeds — before the unpredictability hits.</p>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap grid g3" style="align-items:start">
+    <div>
+      <div class="block-head"><h2>01 · Your entry</h2><span class="tag"></span></div>
+      <div class="grid g2">
+        <label class="f">Pre-money (₹ Cr)<input type="number" id="preMoney" value="80" step="5"></label>
+        <label class="f">Your investment (₹ Cr)<input type="number" id="invest" value="20" step="1"></label>
+        <label class="f">ESOP pool pre-round (%)<input type="number" id="esopPct" value="10" step="1"></label>
+      </div>
+      <p class="note" id="entryNote" style="margin-top:14px"></p>
+    </div>
+
+    <div>
+      <div class="block-head"><h2>02 · Your rights</h2><span class="tag"></span></div>
+      <div class="grid g2">
+        <label class="f">Liquidation pref<select id="prefMult"><option value="1">1.0x</option><option value="1.5">1.5x</option><option value="2">2.0x</option></select></label>
+        <label class="f">Participation<select id="participation"><option value="none">Non-participating</option><option value="full">Participating</option><option value="capped">Capped participating</option></select></label>
+        <label class="f" id="capWrap" style="display:none">Participation cap (x)<input type="number" id="partCap" value="3" step="0.5"></label>
+        <label class="f">Anti-dilution<select id="antiDil"><option value="bbwa">Broad-based WA</option><option value="nbwa">Narrow-based WA</option><option value="ratchet">Full ratchet</option><option value="none">None</option></select></label>
+        <label class="f">Board fall-away (%)<input type="number" id="boardThresh" value="10" step="0.5"></label>
+        <label class="f">Veto fall-away (%)<input type="number" id="vetoThresh" value="7.5" step="0.5"></label>
+        <label class="f">Drag trigger (%)<input type="number" id="dragTrigger" value="50" step="5"></label>
+        <label class="f">Info rights min (%)<input type="number" id="infoThresh" value="5" step="0.5"></label>
+      </div>
+      <div class="grid g2" style="margin-top:14px">
+        <label class="check"><input type="checkbox" id="proRataRight" checked><span>Pro-rata right</span></label>
+        <label class="check"><input type="checkbox" id="tagAlong" checked><span>Tag-along</span></label>
+        <label class="check"><input type="checkbox" id="redemption"><span>Redemption / put</span></label>
+        <label class="check"><input type="checkbox" id="payToPlay"><span>Pay-to-play<small>Skip a down round, lose protection</small></span></label>
+      </div>
+    </div>
+
+    <div>
+      <div class="block-head"><h2>03 · Next round</h2><span class="tag"></span></div>
+      <div class="grid g2">
+        <label class="f">Scenario<select id="scenario">
+          <option value="up">Up round</option><option value="flat">Flat round</option>
+          <option value="down">Down round</option><option value="structured">Structured</option>
+        </select></label>
+        <label class="f">Multiple on post (x)<input type="number" id="markup" value="2.0" step="0.1"></label>
+        <label class="f">New money (₹ Cr)<input type="number" id="newMoney" value="50" step="5"></label>
+        <label class="f">ESOP top-up (% of post)<input type="number" id="esopTopUp" value="5" step="1"></label>
+        <label class="f">R2 preference<select id="r2PrefMult"><option value="1">1.0x</option><option value="1.5">1.5x</option><option value="2">2.0x</option></select></label>
+        <label class="f">R2 participation<select id="r2Part"><option value="none">Non-participating</option><option value="full">Participating</option></select></label>
+      </div>
+      <div class="grid" style="margin-top:14px">
+        <label class="check"><input type="checkbox" id="r2Senior" checked><span>New round senior to you<small>Off = pari passu stack</small></span></label>
+        <label class="check" id="proRataWrap"><input type="checkbox" id="exerciseProRata"><span>Exercise pro-rata this round<small id="proRataCost"></small></span></label>
+      </div>
+      <p class="note" id="priceNote" style="margin-top:14px"></p>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap">
+    <div class="block-head"><h2>Pro-forma ownership</h2><span class="tag">BEFORE VS AFTER ROUND 2</span></div>
+    <table class="t"><thead><tr>
+      <th>Holder</th><th class="r">Shares (post-R2)</th><th class="r">% before</th><th class="r">% after</th><th class="r">Δ</th>
+    </tr></thead><tbody id="capTable"></tbody></table>
+    <p class="note" id="adNote" style="margin-top:14px;display:none"></p>
+    <p class="note" id="p2pNote" style="margin-top:14px;display:none;background:var(--navy);color:#cde0e1"></p>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap">
+    <div class="block-head"><h2>Rights survival</h2><span class="tag">VS SHA COVENANTS, POST-ROUND</span></div>
+    <table class="t"><thead><tr><th>Right</th><th>Covenant</th><th class="r">Status</th></tr></thead><tbody id="rightsTable"></tbody></table>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap">
+    <div class="block-head"><h2>Exit waterfall</h2><span class="tag">PROCEEDS BY HOLDER · ₹ CR</span></div>
+    <div class="grid g3" style="align-items:end;margin-bottom:18px">
+      <label class="f">Your exit case (× post-R2)<input type="number" id="exitMult" value="2" step="0.25"></label>
+      <div class="panel-dark" style="grid-column:span 2;padding:16px 22px">
+        <span class="k">AT YOUR EXIT CASE&nbsp;&nbsp;</span><span class="v" id="exitSummary"></span>
+      </div>
+    </div>
+    <div class="chart-box"><canvas id="wfChart" height="120"></canvas></div>
+    <table class="t" style="margin-top:18px"><thead><tr>
+      <th>Exit</th><th class="r">EV</th><th class="r">You</th><th class="r">Your MOIC</th><th class="r">New investor</th><th class="r">Founders + ESOP</th>
+    </tr></thead><tbody id="wfTable"></tbody></table>
+    <p class="disclaimer" style="margin-top:10px">⇄ = at that exit you rationally convert to common (as-converted beats your preference).</p>
+  </div>
+</section>
+
+<section class="block" style="border-bottom:0">
+  <div class="wrap note">
+    <b>Methodology &amp; caveats.</b> Base of 10,000,000 pre-round shares (founders + ESOP). Anti-dilution: broad-based weighted average CP₂ = CP₁ × (A + B) / (A + C) on the fully diluted base; narrow-based uses your preferred only; full ratchet resets to the new price. Price/share circularity from ratchet shares and the ESOP top-up is solved iteratively. The waterfall assumes rational conversion (equilibrium across classes), R2 seniority as toggled, and capped participation capped on total proceeds. Simplifications: one existing investor class, no accrued dividends, ESOP treated as issued common. Drag / put / redemption enforceability in India depends on Articles incorporation and FEMA. Analytical tool — not legal or investment advice.
+  </div>
+</section>
+
+<footer class="tools-foot">
+  <div class="foot-inner">
+    <span>© 2026 Vestorium</span>
+    <span><a href="/tools/">ALL TOOLS</a> · <a href="/">VESTORIUM.IN</a></span>
+  </div>
+</footer>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = (n,d=1) => (n==null||isNaN(n)) ? "—" : Number(n).toLocaleString("en-IN",{maximumFractionDigits:d,minimumFractionDigits:d});
+const pct = (n,d=1) => isNaN(n) ? "—" : (n*100).toFixed(d)+"%";
+
+/* ---- waterfall engine: 2 preferred classes + common ---- */
+function payoutForCombo(E, classes, commonShares, flags){
+  let remaining = E; const payout = classes.map(()=>0);
+  const order = classes.map((c,i)=>({c,i})).filter(({c,i})=>!flags[i]&&!c.isCommonNow).sort((a,b)=>a.c.seniority-b.c.seniority);
+  for(const {c,i} of order){ const p = Math.min(remaining, c.prefMult*c.invested); payout[i]+=p; remaining-=p; }
+  const parts = classes.map((c,i)=>({c,i,sh:c.shares})).filter(({c,i})=>flags[i]||c.isCommonNow||c.participation!=="none");
+  const prefPaid = classes.map((c,i)=>(!flags[i]&&!c.isCommonNow)?Math.min(payout[i],c.prefMult*c.invested):0);
+  let residual = remaining; const capped = new Set();
+  for(let iter=0; iter<6; iter++){
+    const act = commonShares + parts.filter(p=>!capped.has(p.i)).reduce((s,p)=>s+p.sh,0);
+    if(act<=0) return {payout, common:0};
+    let changed=false;
+    for(const p of parts){
+      if(capped.has(p.i)) continue;
+      const isPartPref = !flags[p.i] && !p.c.isCommonNow && p.c.participation!=="none";
+      const share = residual*p.sh/act;
+      if(isPartPref && p.c.participation==="capped"){
+        const capTotal = p.c.cap*p.c.invested;
+        if(payout[p.i]+share > capTotal){ payout[p.i]=capTotal; capped.add(p.i); changed=true; }
+      }
+    }
+    if(!changed){
+      for(const p of parts){ if(!capped.has(p.i)) payout[p.i]+= residual*p.sh/act; }
+      return {payout, common: residual*commonShares/act};
+    }
+    // residual = tier-2 cash minus participation already consumed by capped classes (their payout above preference)
+    residual = remaining - [...capped].reduce((s,i)=>s+(payout[i]-prefPaid[i]),0);
+  }
+  const act = commonShares + parts.filter(p=>!capped.has(p.i)).reduce((s,p)=>s+p.sh,0);
+  for(const p of parts){ if(!capped.has(p.i)) payout[p.i]+= act>0 ? residual*p.sh/act : 0; }
+  return {payout, common: act>0 ? residual*commonShares/act : 0};
+}
+function solveWaterfall(E, classes, commonShares){
+  const n = classes.length, results=[];
+  for(let m=0;m<(1<<n);m++){ const flags = classes.map((_,i)=>!!(m&(1<<i))); results.push({flags, r:payoutForCombo(E,classes,commonShares,flags)}); }
+  for(const {flags,r} of results){
+    let stable=true;
+    for(let i=0;i<n;i++){
+      if(classes[i].isCommonNow) continue;
+      const flip = flags.map((f,j)=>j===i?!f:f);
+      const alt = results.find(x=>x.flags.every((f,j)=>f===flip[j]));
+      if(alt && alt.r.payout[i] > r.payout[i]+1e-9){ stable=false; break; }
+    }
+    if(stable) return {...r, flags};
+  }
+  return {...results[0].r, flags:results[0].flags};
+}
+
+function compute(){
+  const preMoney=+$("preMoney").value, invest=+$("invest").value, esopPct=+$("esopPct").value;
+  const prefMult=+$("prefMult").value, participation=$("participation").value, partCap=+$("partCap").value;
+  const antiDil=$("antiDil").value, proRataRight=$("proRataRight").checked, exercisePR=$("exerciseProRata").checked && proRataRight;
+  const payToPlay=$("payToPlay").checked, boardThresh=+$("boardThresh").value/100, vetoThresh=+$("vetoThresh").value/100;
+  const dragTrigger=+$("dragTrigger").value/100, infoThresh=+$("infoThresh").value/100;
+  const tagAlong=$("tagAlong").checked, redemption=$("redemption").checked;
+  const scenario=$("scenario").value, markup=+$("markup").value, newMoney=+$("newMoney").value, esopTopUp=+$("esopTopUp").value;
+  const r2Senior=$("r2Senior").checked, r2PrefMult=+$("r2PrefMult").value, r2Part=$("r2Part").value, exitMult=+$("exitMult").value;
+
+  $("capWrap").style.display = participation==="capped" ? "" : "none";
+  $("proRataWrap").style.display = proRataRight ? "" : "none";
+
+  const FOUNDER = 1e7*(1-esopPct/100), ESOP = 1e7*(esopPct/100), preFD1 = FOUNDER+ESOP;
+  const pps1 = preMoney/preFD1, yourSh = invest/pps1, post1 = preMoney+invest, fd1 = preFD1+yourSh;
+  const yourPct1 = yourSh/fd1;
+  $("entryNote").innerHTML = `PPS ₹${fmt(pps1*1e7,2)}/sh · Post ₹${fmt(post1)} Cr · <b>You: ${pct(yourPct1)} fully diluted</b>`;
+
+  let pre2 = scenario==="up" ? post1*Math.max(markup,1.01) : scenario==="flat" ? post1 : post1*Math.min(markup,0.99);
+  const structured = scenario==="structured";
+
+  let cp1=pps1, adj=yourSh, pps2=0, topUpSh=0, newSh=0, p2pLost=false;
+  for(let k=0;k<40;k++){
+    const basePre = FOUNDER+ESOP+adj;
+    let tSh=0,nSh=0,p2=pre2/basePre;
+    for(let j=0;j<40;j++){ p2 = pre2/(basePre+tSh); nSh = newMoney/p2; tSh = Math.max(0,(esopTopUp/100)*(basePre+nSh)/(1-esopTopUp/100)); }
+    pps2=p2; topUpSh=tSh; newSh=nSh;
+    const down = pps2 < pps1-1e-12;
+    p2pLost = payToPlay && down && !exercisePR;
+    let next=yourSh;
+    if(down && antiDil!=="none" && !p2pLost){
+      if(antiDil==="ratchet"){ cp1 = pps2; }
+      else {
+        const A = antiDil==="bbwa" ? FOUNDER+ESOP+topUpSh+yourSh : yourSh;
+        const B = newMoney/pps1, C = newSh;
+        cp1 = Math.min(pps1, Math.max(pps1*(A+B)/(A+C), pps2));
+      }
+      next = yourSh*(pps1/cp1);
+    } else { cp1=pps1; next=yourSh; }
+    if(Math.abs(next-adj)<1e-6){ adj=next; break; }
+    adj=next;
+  }
+  const bonus = adj-yourSh, downRound = pps2 < pps1-1e-9;
+  const fdPre2 = FOUNDER+ESOP+topUpSh+adj;
+  let prInvest=0, prSh=0;
+  if(exercisePR){ const t = adj/fdPre2; prInvest = t*newMoney; prSh = prInvest/pps2; }
+  $("proRataCost").textContent = proRataRight ? (exercisePR ? `Costs ₹${fmt((adj/fdPre2)*newMoney)} Cr at the new price` : "Maintain your % by investing again") : "";
+
+  const fd2 = fdPre2+newSh, post2 = pre2+newMoney;
+  const yourSh2 = adj+prSh, yourPct2 = yourSh2/fd2;
+  const extSh = newSh-prSh, extMoney = newMoney-prInvest;
+
+  $("priceNote").innerHTML = `R2 pre ₹${fmt(pre2)} Cr · PPS ₹${fmt(pps2*1e7,2)}/sh · <b>${downRound ? "DOWN ROUND — anti-dilution live" : "At/above your entry price"}</b>`;
+  $("priceNote").style.background = downRound ? "var(--sage-soft)" : "var(--mint)";
+
+  const rows = [
+    {h:"Founders", sh:FOUNDER, b:FOUNDER/fd1, a:FOUNDER/fd2},
+    {h:"ESOP (incl. top-up)", sh:ESOP+topUpSh, b:ESOP/fd1, a:(ESOP+topUpSh)/fd2},
+    {h:`You — R1 investor${bonus>0?" (incl. anti-dilution shares)":""}`, sh:yourSh2, b:yourPct1, a:yourPct2, hl:true},
+    {h:"New investor (R2)", sh:extSh, b:0, a:extSh/fd2},
+  ];
+  $("capTable").innerHTML = rows.map(r=>`<tr class="${r.hl?'hl':''}">
+    <td class="n">${r.h}</td><td class="r">${fmt(r.sh,0)}</td><td class="r">${pct(r.b)}</td><td class="r">${pct(r.a)}</td>
+    <td class="r ${r.a-r.b<0?'neg':'pos'}">${pct(r.a-r.b)}</td></tr>`).join("");
+
+  $("adNote").style.display = bonus>0 ? "" : "none";
+  if(bonus>0) $("adNote").innerHTML = `Anti-dilution issued you <b>${fmt(bonus,0)}</b> additional as-converted shares (conversion price ₹${fmt(pps1*1e7,2)} → ₹${fmt(cp1*1e7,2)}, ${antiDil.toUpperCase()}).`;
+  $("p2pNote").style.display = p2pLost ? "" : "none";
+  if(p2pLost) $("p2pNote").innerHTML = `<b style="color:var(--teal)">PAY-TO-PLAY BREACH</b> — you skipped a down round: anti-dilution and liquidation preference forfeited; treated as common in the waterfall.`;
+
+  const rights = [
+    ["Board seat", `Fall-away below ${pct(boardThresh,1)} · you hold ${pct(yourPct2)}`, yourPct2>=boardThresh],
+    ["Veto / reserved matters", `Fall-away below ${pct(vetoThresh,1)} · you hold ${pct(yourPct2)}`, yourPct2>=vetoThresh],
+    ["Information rights", `Threshold ${pct(infoThresh,1)}`, yourPct2>=infoThresh],
+    ["Pro-rata (next round)", proRataRight?(exercisePR?`Exercised: +₹${fmt(prInvest)} Cr`:"Held, not exercised"):"Not held", proRataRight],
+    ["Drag-along (you drag)", `Requires ${pct(dragTrigger,0)} of preferred · you hold ${pct(yourPct2)}`, yourPct2>=dragTrigger],
+    ["Tag-along", "Ownership-independent (per SHA)", tagAlong],
+    ["Redemption / put", redemption?"Check India enforceability (FEMA / Sec 68)":"Not held", redemption],
+    ["Anti-dilution", p2pLost?"LOST — pay-to-play breach":(antiDil==="none"?"Not held":antiDil.toUpperCase()+" active"), antiDil!=="none"&&!p2pLost],
+  ];
+  $("rightsTable").innerHTML = rights.map(([n,c,ok])=>`<tr><td class="n">${n}</td><td>${c}</td>
+    <td class="r"><span class="pill ${ok?'pill-ok':'pill-bad'}">${ok?'SURVIVES':'LOST / N.A.'}</span></td></tr>`).join("");
+
+  const youClass = {invested:invest+prInvest, shares:yourSh2, prefMult:p2pLost?0:prefMult,
+    participation:p2pLost?"none":participation, cap:partCap, isCommonNow:p2pLost, seniority:r2Senior?2:1};
+  const r2Class = {invested:extMoney, shares:extSh, prefMult:structured?Math.max(r2PrefMult,1.5):r2PrefMult,
+    participation:structured&&r2Part==="none"?"full":r2Part, cap:3, isCommonNow:false, seniority:1};
+  const commonSh = FOUNDER+ESOP+topUpSh;
+
+  const mults=[0.5,1,1.5,2,3,5];
+  const pts = mults.map(m=>{
+    const E=m*post2, w=solveWaterfall(E,[youClass,r2Class],commonSh);
+    return {label:m+"x", E, you:w.payout[0], ni:w.payout[1], f:w.common, conv:w.flags[0], moic:w.payout[0]/(invest+prInvest)};
+  });
+  const selW = solveWaterfall(exitMult*post2,[youClass,r2Class],commonSh);
+  $("exitSummary").textContent = `You receive ₹${fmt(selW.payout[0])} Cr · MOIC ${fmt(selW.payout[0]/(invest+prInvest),2)}x ${selW.flags[0]?"(as-converted)":"(on preference)"} at ₹${fmt(exitMult*post2)} Cr EV`;
+
+  $("wfTable").innerHTML = pts.map(p=>`<tr><td>${p.label}${p.conv?" ⇄":""}</td><td class="r">${fmt(p.E)}</td>
+    <td class="r"><b>${fmt(p.you)}</b></td><td class="r">${fmt(p.moic,2)}x</td><td class="r">${fmt(p.ni)}</td><td class="r">${fmt(p.f)}</td></tr>`).join("");
+
+  const style = getComputedStyle(document.documentElement);
+  const cNavy=style.getPropertyValue("--navy").trim(), cTeal=style.getPropertyValue("--teal").trim(), cSage=style.getPropertyValue("--sage").trim();
+  if(window._wf) window._wf.destroy();
+  window._wf = new Chart($("wfChart"), {
+    type:"bar",
+    data:{ labels:pts.map(p=>p.label), datasets:[
+      {label:"New investor", data:pts.map(p=>p.ni), backgroundColor:cSage, stack:"a"},
+      {label:"You", data:pts.map(p=>p.you), backgroundColor:cTeal, stack:"a"},
+      {label:"Founders + ESOP", data:pts.map(p=>p.f), backgroundColor:cNavy, stack:"a"},
+    ]},
+    options:{ responsive:true, plugins:{legend:{labels:{font:{family:"'JetBrains Mono',monospace",size:11}}},
+      tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ₹${fmt(c.parsed.y)} Cr`}}},
+      scales:{x:{stacked:true,grid:{display:false},ticks:{font:{family:"'JetBrains Mono',monospace"}}},
+        y:{stacked:true,ticks:{font:{family:"'JetBrains Mono',monospace"}},title:{display:true,text:"₹ Cr"}}}}
+  });
+}
+document.querySelectorAll("input,select").forEach(el=>el.addEventListener("input",compute));
+compute();
+</script>
+</body>
+</html>

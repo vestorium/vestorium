@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fund Operations Model — Vestorium Tools</title>
+<meta name="description" content="Live PE/VC fund model: European and American distribution waterfalls, fee step-downs, capital calls, DPI/RVPI/TVPI and net IRR. Excel download included.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tools.css">
+</head>
+<body>
+
+<header class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="/">Vestorium<span> · Tools</span></a>
+    <nav class="nav-links">
+      <a href="/tools/">TOOLS</a>
+      <a href="captable-simulator.html">CAP TABLE</a>
+      <a href="fund-model.html" class="active">FUND MODEL</a>
+      <a href="portfolio-dashboard.html">PORTFOLIO</a>
+    </nav>
+  </div>
+</header>
+
+<section class="tool-hero">
+  <div class="wrap">
+    <div class="eyebrow">Distribution waterfalls · Fee step-downs · Fund metrics · ₹ Cr</div>
+    <h1>Fund Operations Model</h1>
+    <p>A 12-year fund, live in your browser: edit the assumptions and the deal book, and watch capital calls, both waterfalls, and DPI / RVPI / TVPI / net IRR recompute. The same model ships as a fully formula-driven Excel workbook.</p>
+    <p style="margin-top:20px"><a class="btn btn-dark" href="Fund_Operations_Model_Suite.xlsx" download>Download the Excel model ↓</a></p>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap">
+    <div class="block-head"><h2>Assumptions</h2><span class="tag">EDIT ANYTHING</span></div>
+    <div class="grid g4">
+      <label class="f">Fund size (₹ Cr)<input type="number" id="fundSize" value="1000" step="50"></label>
+      <label class="f">Vintage year<input type="number" id="vintage" value="2026" step="1"></label>
+      <label class="f">Investment period (yrs)<input type="number" id="ip" value="5" step="1"></label>
+      <label class="f">Fund term (yrs)<input type="number" id="term" value="12" step="1" disabled></label>
+      <label class="f">Fee — IP (% committed)<input type="number" id="fee1" value="2.0" step="0.1"></label>
+      <label class="f">Fee — post-IP (% net invested)<input type="number" id="fee2" value="1.5" step="0.1"></label>
+      <label class="f">Hurdle (% p.a., compounding)<input type="number" id="hurdle" value="8" step="0.5"></label>
+      <label class="f">Carried interest (%)<input type="number" id="carry" value="20" step="1"></label>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap">
+    <div class="block-head"><h2>Deal book</h2><span class="tag">EXIT YEAR 9999 = UNEXITED (HELD AT CARRYING MULTIPLE)</span></div>
+    <div style="overflow-x:auto"><table class="t" id="dealTable"><thead><tr>
+      <th>Deal</th><th class="r">Invest yr</th><th class="r">Invested</th><th class="r">Carrying (x)</th><th class="r">Exit yr</th><th class="r">Gross MOIC (x)</th><th class="r">Proceeds</th>
+    </tr></thead><tbody></tbody></table></div>
+  </div>
+</section>
+
+<section class="block" style="background:var(--mint)">
+  <div class="wrap">
+    <div class="block-head"><h2>Fund summary</h2><span class="tag">LIVE</span></div>
+    <div class="stats" id="statStrip"></div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap">
+    <div class="block-head"><h2>European waterfall</h2><span class="tag">WHOLE-FUND: ROC → PREF → CATCH-UP → 80/20</span></div>
+    <div style="overflow-x:auto"><table class="t" id="euroTable"></table></div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap">
+    <div class="block-head"><h2>American waterfall</h2><span class="tag">DEAL-BY-DEAL, WITH CLAWBACK TEST</span></div>
+    <div style="overflow-x:auto"><table class="t" id="amTable"></table></div>
+    <p class="note" id="clawNote" style="margin-top:14px"></p>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap">
+    <div class="block-head"><h2>Performance metrics</h2><span class="tag">LP PERSPECTIVE, NET OF FEES &amp; CARRY</span></div>
+    <div style="overflow-x:auto"><table class="t" id="metricsTable"></table></div>
+  </div>
+</section>
+
+<section class="block" style="border-bottom:0">
+  <div class="wrap note">
+    <b>Conventions &amp; simplifications.</b> Annual periods; just-in-time drawdowns (calls fund investments + fees in the year incurred); proceeds distributed in the exit year; preferred return compounds on unreturned capital plus unpaid pref; 100% GP catch-up; NAV = cost × carrying multiple for unexited deals; net IRR includes terminal NAV as a final-year flow. The clawback line compares deal-by-deal GP carry against whole-fund entitlement at current realizations — it is indicative, not a legal computation. All figures illustrative. The <a href="Fund_Operations_Model_Suite.xlsx" download><b>Excel workbook</b></a> implements the identical logic with auditable formulas.
+  </div>
+</section>
+
+<footer class="tools-foot">
+  <div class="foot-inner">
+    <span>© 2026 Vestorium</span>
+    <span><a href="/tools/">ALL TOOLS</a> · <a href="/">VESTORIUM.IN</a></span>
+  </div>
+</footer>
+
+<script>
+const $=id=>document.getElementById(id);
+const fmt=(n,d=1)=>(n==null||isNaN(n))?"—":Number(n).toLocaleString("en-IN",{maximumFractionDigits:d,minimumFractionDigits:d});
+const YEARS = 12;
+
+let deals = [
+  {name:"Deal A", iy:2026, inv:80,  cm:1.0, ey:2030, moic:2.5},
+  {name:"Deal B", iy:2026, inv:60,  cm:1.0, ey:2031, moic:3.2},
+  {name:"Deal C", iy:2027, inv:90,  cm:1.8, ey:2032, moic:2.0},
+  {name:"Deal D", iy:2027, inv:70,  cm:1.0, ey:2029, moic:0.6},
+  {name:"Deal E", iy:2028, inv:100, cm:2.2, ey:2033, moic:4.0},
+  {name:"Deal F", iy:2028, inv:80,  cm:1.5, ey:2034, moic:1.8},
+  {name:"Deal G", iy:2029, inv:120, cm:2.0, ey:2035, moic:2.8},
+  {name:"Deal H", iy:2030, inv:100, cm:1.6, ey:9999, moic:0},
+];
+
+function renderDeals(){
+  const tb = $("dealTable").querySelector("tbody");
+  tb.innerHTML = deals.map((d,i)=>`<tr>
+    <td class="n">${d.name}</td>
+    <td class="r"><input data-i="${i}" data-k="iy" type="number" value="${d.iy}" style="width:80px;text-align:right;font-family:var(--mono);border:1px solid #cddcd6;border-radius:8px;padding:6px"></td>
+    <td class="r"><input data-i="${i}" data-k="inv" type="number" value="${d.inv}" style="width:80px;text-align:right;font-family:var(--mono);border:1px solid #cddcd6;border-radius:8px;padding:6px"></td>
+    <td class="r"><input data-i="${i}" data-k="cm" type="number" step="0.1" value="${d.cm}" style="width:70px;text-align:right;font-family:var(--mono);border:1px solid #cddcd6;border-radius:8px;padding:6px"></td>
+    <td class="r"><input data-i="${i}" data-k="ey" type="number" value="${d.ey}" style="width:80px;text-align:right;font-family:var(--mono);border:1px solid #cddcd6;border-radius:8px;padding:6px"></td>
+    <td class="r"><input data-i="${i}" data-k="moic" type="number" step="0.1" value="${d.moic}" style="width:70px;text-align:right;font-family:var(--mono);border:1px solid #cddcd6;border-radius:8px;padding:6px"></td>
+    <td class="r" id="proc${i}"></td></tr>`).join("");
+  tb.querySelectorAll("input").forEach(inp=>inp.addEventListener("input",e=>{
+    deals[+e.target.dataset.i][e.target.dataset.k] = +e.target.value; compute();
+  }));
+}
+
+function irr(flows){
+  // bisection on annual flows
+  const npv = r => flows.reduce((s,f,t)=>s+f/Math.pow(1+r,t),0);
+  let lo=-0.95, hi=3; if(npv(lo)*npv(hi)>0) return NaN;
+  for(let i=0;i<200;i++){ const m=(lo+hi)/2; (npv(lo)*npv(m)<=0)?hi=m:lo=m; }
+  return (lo+hi)/2;
+}
+
+function compute(){
+  const FS=+$("fundSize").value, VIN=+$("vintage").value, IP=+$("ip").value;
+  const F1=+$("fee1").value/100, F2=+$("fee2").value/100, H=+$("hurdle").value/100, C=+$("carry").value/100;
+  const yrs = Array.from({length:YEARS},(_,i)=>VIN+i);
+
+  deals.forEach((d,i)=>{ d.proc = d.ey>=9999 ? 0 : d.inv*d.moic; const el=$("proc"+i); if(el) el.textContent = fmt(d.proc); });
+
+  // fees & calls
+  const invByYr = yrs.map(y=>deals.filter(d=>d.iy===y).reduce((s,d)=>s+d.inv,0));
+  const cumInv = [], cumExitCost = [], netInv = [], feeBasis=[], fees=[], calls=[], cumCalls=[];
+  let ci=0, ce=0, cc=0;
+  yrs.forEach((y,t)=>{
+    ci += invByYr[t];
+    ce += deals.filter(d=>d.ey===y).reduce((s,d)=>s+d.inv,0);
+    cumInv.push(ci); cumExitCost.push(ce); netInv.push(ci-ce);
+    const inIP = (y-VIN+1)<=IP;
+    feeBasis.push(inIP?FS:netInv[t]); fees.push(feeBasis[t]*(inIP?F1:F2));
+    calls.push(invByYr[t]+fees[t]); cc+=calls[t]; cumCalls.push(cc);
+  });
+
+  // European waterfall
+  const proceeds = yrs.map(y=>deals.filter(d=>d.ey===y).reduce((s,d)=>s+d.proc,0));
+  let cumROC=0, unpaidPref=0, cumPref=0, cumCU=0;
+  const eu = yrs.map((y,t)=>{
+    const cash=proceeds[t], contrib=cumCalls[t];
+    const roc = Math.min(cash, contrib-cumROC);
+    const after1 = cash-roc;
+    const unretBOY = t===0?0:(cumCalls[t-1]-cumROC); // BOY = end of prior year state (cumROC pre-update this yr)
+    const prefAcc = H*(unretBOY+unpaidPref);
+    const prefPaid = Math.min(after1, unpaidPref+prefAcc);
+    const after2 = after1-prefPaid;
+    cumROC+=roc; unpaidPref = unpaidPref+prefAcc-prefPaid; cumPref+=prefPaid;
+    const cuTarget = C/(1-C)*cumPref;
+    const cu = Math.min(after2, Math.max(0,cuTarget-cumCU));
+    cumCU+=cu;
+    const after3 = after2-cu;
+    const lp4 = after3*(1-C), gp4 = after3*C;
+    return {y, cash, roc, prefAcc, prefPaid, cu, lp:roc+prefPaid+lp4, gp:cu+gp4};
+  });
+  const totLP = eu.reduce((s,r)=>s+r.lp,0), totGPeu = eu.reduce((s,r)=>s+r.gp,0);
+
+  // American waterfall
+  const am = deals.map(d=>{
+    if(d.ey>=9999) return {...d, yrsHeld:0, pref:0, t1:0, t2:0, t3:0, t4:0, lp:0, gp:0};
+    const n=d.ey-d.iy, pref=d.inv*(Math.pow(1+H,n)-1);
+    const t1=Math.min(d.proc,d.inv), r1=d.proc-t1;
+    const t2=Math.min(r1,pref), r2=r1-t2;
+    const t3=Math.min(r2, C/(1-C)*t2), t4=r2-t3;
+    return {...d, yrsHeld:n, pref, t1, t2, t3, t4, lp:t1+t2+t4*(1-C), gp:t3+t4*C};
+  });
+  const totGPam = am.reduce((s,r)=>s+r.gp,0);
+  const clawback = Math.max(0, totGPam-totGPeu);
+
+  // metrics
+  let cumDist=0;
+  const met = yrs.map((y,t)=>{
+    cumDist += eu[t].lp;
+    const nav = deals.filter(d=>d.iy<=y && d.ey>y).reduce((s,d)=>s+d.inv*d.cm,0);
+    const dpi = cumCalls[t]?cumDist/cumCalls[t]:0, rvpi = cumCalls[t]?nav/cumCalls[t]:0;
+    return {y, paidIn:cumCalls[t], dist:eu[t].lp, cumDist, nav, dpi, rvpi, tvpi:dpi+rvpi,
+      cf: -calls[t]+eu[t].lp+(t===YEARS-1?nav:0)};
+  });
+  const netIRR = irr(met.map(m=>m.cf));
+
+  // render summary
+  const finalM = met[YEARS-1];
+  $("statStrip").innerHTML = [
+    ["Total called", "₹"+fmt(cumCalls[YEARS-1]), `${fmt(cumCalls[YEARS-1]/FS*100,0)}% of ₹${fmt(FS,0)} Cr fund`],
+    ["Gross proceeds", "₹"+fmt(deals.reduce((s,d)=>s+d.proc,0)), "realized exits"],
+    ["LP distributions", "₹"+fmt(totLP), "European waterfall"],
+    ["GP carry (Euro / Amer)", `₹${fmt(totGPeu)} / ₹${fmt(totGPam)}`, clawback>0?`clawback ₹${fmt(clawback)} Cr`:"no clawback"],
+    ["DPI / TVPI", `${fmt(finalM.dpi,2)}x / ${fmt(finalM.tvpi,2)}x`, `RVPI ${fmt(finalM.rvpi,2)}x`],
+    ["Net LP IRR", isNaN(netIRR)?"n/a":fmt(netIRR*100,1)+"%", "incl. terminal NAV"],
+  ].map(([k,v,s],i)=>`<div class="stat ${i===5?'alert':''}"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("");
+
+  // euro table
+  $("euroTable").innerHTML = `<thead><tr><th>Year</th><th class="r">Proceeds</th><th class="r">T1 ROC</th><th class="r">T2 Pref</th><th class="r">T3 Catch-up</th><th class="r">LP total</th><th class="r">GP total</th></tr></thead><tbody>` +
+    eu.map(r=>`<tr><td>${r.y}</td><td class="r">${fmt(r.cash)}</td><td class="r">${fmt(r.roc)}</td><td class="r">${fmt(r.prefPaid)}</td><td class="r">${fmt(r.cu)}</td><td class="r"><b>${fmt(r.lp)}</b></td><td class="r">${fmt(r.gp)}</td></tr>`).join("") +
+    `<tr class="hl"><td class="n">Total</td><td class="r">${fmt(eu.reduce((s,r)=>s+r.cash,0))}</td><td></td><td></td><td></td><td class="r"><b>${fmt(totLP)}</b></td><td class="r"><b>${fmt(totGPeu)}</b></td></tr></tbody>`;
+
+  // american table
+  $("amTable").innerHTML = `<thead><tr><th>Deal</th><th class="r">Invested</th><th class="r">Proceeds</th><th class="r">Yrs</th><th class="r">Pref</th><th class="r">GP carry</th><th class="r">LP total</th></tr></thead><tbody>` +
+    am.map(r=>`<tr><td class="n">${r.name}</td><td class="r">${fmt(r.inv)}</td><td class="r">${fmt(r.proc)}</td><td class="r">${r.ey>=9999?"—":r.yrsHeld}</td><td class="r">${fmt(r.pref)}</td><td class="r">${fmt(r.gp)}</td><td class="r">${fmt(r.lp)}</td></tr>`).join("") +
+    `<tr class="hl"><td class="n">Total</td><td class="r">${fmt(am.reduce((s,r)=>s+r.inv,0))}</td><td class="r">${fmt(am.reduce((s,r)=>s+r.proc,0))}</td><td></td><td></td><td class="r"><b>${fmt(totGPam)}</b></td><td class="r"><b>${fmt(am.reduce((s,r)=>s+r.lp,0))}</b></td></tr></tbody>`;
+  $("clawNote").innerHTML = clawback>0
+    ? `<b>Indicative clawback: ₹${fmt(clawback)} Cr.</b> Deal-by-deal carry (₹${fmt(totGPam)} Cr) exceeds whole-fund entitlement at current realizations (₹${fmt(totGPeu)} Cr) — the structural reason LPs prefer European waterfalls and demand clawback provisions with escrow.`
+    : `No clawback at current realizations — deal-by-deal carry does not exceed the whole-fund entitlement.`;
+
+  // metrics table
+  $("metricsTable").innerHTML = `<thead><tr><th>Year</th><th class="r">Paid-in (cum)</th><th class="r">Dist (yr)</th><th class="r">NAV</th><th class="r">DPI</th><th class="r">RVPI</th><th class="r">TVPI</th></tr></thead><tbody>` +
+    met.map(m=>`<tr><td>${m.y}</td><td class="r">${fmt(m.paidIn)}</td><td class="r">${fmt(m.dist)}</td><td class="r">${fmt(m.nav)}</td><td class="r">${fmt(m.dpi,2)}x</td><td class="r">${fmt(m.rvpi,2)}x</td><td class="r"><b>${fmt(m.tvpi,2)}x</b></td></tr>`).join("")+"</tbody>";
+}
+
+renderDeals();
+["fundSize","vintage","ip","fee1","fee2","hurdle","carry"].forEach(id=>$(id).addEventListener("input",compute));
+compute();
+</script>
+</body>
+</html>

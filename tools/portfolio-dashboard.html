@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portfolio Monitoring Dashboard — Vestorium Tools</title>
+<meta name="description" content="Board-ready portfolio monitoring: covenant flags, valuation bridges, sector/vintage/geography exposure, and a macro-linked risk-sizing matrix.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tools.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+
+<header class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="/">Vestorium<span> · Tools</span></a>
+    <nav class="nav-links">
+      <a href="/tools/">TOOLS</a>
+      <a href="captable-simulator.html">CAP TABLE</a>
+      <a href="fund-model.html">FUND MODEL</a>
+      <a href="portfolio-dashboard.html" class="active">PORTFOLIO</a>
+    </nav>
+  </div>
+</header>
+
+<section class="tool-hero">
+  <div class="wrap">
+    <div class="eyebrow">Covenant flags · Valuation bridges · Exposure · Risk sizing · ₹ Cr</div>
+    <h1>Portfolio Monitoring Dashboard</h1>
+    <p>Paste quarterly portfolio data and get board-ready visuals: KPI health, covenant compliance, per-company valuation bridges, and sector caps that respond to macro conditions. Data stays in your browser.</p>
+    <p style="margin-top:20px"><button class="btn btn-dark" id="editorBtn">Update quarterly data</button></p>
+  </div>
+</section>
+
+<section class="block" id="editorBlock" style="display:none;background:var(--mint)">
+  <div class="wrap">
+    <div class="block-head"><h2>Quarterly data (JSON)</h2><span class="tag">SCHEMA IN FOOTER · SESSION ONLY</span></div>
+    <textarea id="jsonBox" rows="14" style="width:100%;font-family:var(--mono);font-size:12px;border:1px solid #cddcd6;border-radius:12px;padding:14px;background:#fff;color:var(--navy)"></textarea>
+    <p id="jsonErr" style="color:#8a4a3f;font-family:var(--mono);font-size:12px"></p>
+    <button class="btn btn-teal" id="applyBtn">Apply data</button>
+  </div>
+</section>
+
+<section class="block" style="background:var(--mint)">
+  <div class="wrap">
+    <div class="block-head"><h2 id="asOfHead">Fund snapshot</h2><span class="tag">LIVE</span></div>
+    <div class="stats" id="kpiStrip"></div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap">
+    <div class="block-head"><h2>Company KPIs &amp; covenant flags</h2><span class="tag">CLICK A ROW FOR ITS BRIDGE</span></div>
+    <div style="overflow-x:auto"><table class="t"><thead><tr>
+      <th>Company</th><th>Sector</th><th class="r">Invested</th><th class="r">FMV</th><th class="r">MOIC</th><th class="r">Growth</th><th class="r">EBITDA%</th><th class="r">Runway</th><th class="r">ND/EBITDA</th><th>Flags</th>
+    </tr></thead><tbody id="coTable"></tbody></table></div>
+    <p class="disclaimer" style="margin-top:8px"><span class="dot dot-r"></span>2+ breaches &nbsp;<span class="dot dot-a"></span>1 breach (watch) &nbsp;<span class="dot dot-g"></span>compliant</p>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap">
+    <div class="block-head"><h2 id="bridgeHead">Valuation bridge</h2><span class="tag">ENTRY EV → CURRENT EV</span></div>
+    <div class="chart-box"><canvas id="bridgeChart" height="110"></canvas></div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap">
+    <div class="block-head"><h2>Exposure</h2><span class="tag">FMV BY SECTOR · VINTAGE · GEOGRAPHY</span></div>
+    <div class="grid g3">
+      <div class="chart-box"><canvas id="pieSector"></canvas></div>
+      <div class="chart-box"><canvas id="pieVintage"></canvas></div>
+      <div class="chart-box"><canvas id="pieGeo"></canvas></div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap">
+    <div class="block-head"><h2>Risk-sizing matrix</h2><span class="tag">SECTOR CAPS VS MACRO CONDITIONS</span></div>
+    <div class="grid g3" style="margin-bottom:22px">
+      <label class="f">Repo rate: <span id="repoV"></span>%<input type="range" id="repo" min="4" max="9" step="0.25" value="5.5" style="accent-color:var(--green)"></label>
+      <label class="f">Macro sentiment: <span id="sentV"></span> (−2 bear … +2 bull)<input type="range" id="sent" min="-2" max="2" step="1" value="0" style="accent-color:var(--green)"></label>
+      <label class="f">Exit-market liquidity: <span id="liqV"></span> (1 tight … 5 flush)<input type="range" id="liq" min="1" max="5" step="1" value="3" style="accent-color:var(--green)"></label>
+    </div>
+    <table class="t"><thead><tr><th>Sector</th><th class="r">Risk beta</th><th class="r">Current % of FMV</th><th class="r">Suggested cap</th><th class="r">Position</th></tr></thead><tbody id="riskTable"></tbody></table>
+    <p class="disclaimer" style="margin-top:10px">Heuristic: cap = 25% ÷ β, −1.5% per 100bps repo above 5.50% (scaled by β), +2% per sentiment point, ±1% per liquidity point vs neutral; bounded 5–35%. Replace betas and coefficients with house policy before IC use.</p>
+  </div>
+</section>
+
+<section class="block" style="border-bottom:0">
+  <div class="wrap note">
+    <b>Data schema &amp; caveats.</b> <code style="font-family:var(--mono);font-size:12px">{ asOf, fundSize, companies: [{ name, sector, geo, vintage, invested, fmv, ownership, kpis:{ revenue, revenueGrowthYoY, ebitdaMarginPct, runwayMonths, netDebtToEbitda }, covenants:{ minRunwayMonths, maxNetDebtToEbitda, minRevenueGrowthYoY }, bridge:{ entryEV, ebitdaGrowth, multipleChange, netDebtChange } }] }</code> — Sample data is illustrative only. Pasted data lives in this browser session; nothing is uploaded anywhere. Not investment advice.
+  </div>
+</section>
+
+<footer class="tools-foot">
+  <div class="foot-inner">
+    <span>© 2026 Vestorium</span>
+    <span><a href="/tools/">ALL TOOLS</a> · <a href="/">VESTORIUM.IN</a></span>
+  </div>
+</footer>
+
+<script>
+const $=id=>document.getElementById(id);
+const fmt=(n,d=0)=>(n==null||isNaN(n))?"—":Number(n).toLocaleString("en-IN",{maximumFractionDigits:d});
+const BETA={Fintech:1.2,SaaS:1.0,Healthcare:0.7,Consumer:1.1,Cleantech:1.3,Logistics:0.9,Deeptech:1.5,"AI/B2C":1.6};
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const PALETTE = ()=>[css("--green"),css("--teal"),css("--navy"),css("--sage"),"#8fb0b2","#cddcd6","#3f5650","#9aa8a3"];
+
+let data = {
+  asOf:"Q1 FY27", fundSize:1000,
+  companies:[
+    {name:"FinServe",sector:"Fintech",geo:"India-West",vintage:2026,invested:80,fmv:160,ownership:18,kpis:{revenue:120,revenueGrowthYoY:42,ebitdaMarginPct:8,runwayMonths:22,netDebtToEbitda:0.5},covenants:{minRunwayMonths:12,maxNetDebtToEbitda:3.0,minRevenueGrowthYoY:15},bridge:{entryEV:420,ebitdaGrowth:210,multipleChange:-60,netDebtChange:-25}},
+    {name:"CloudStack",sector:"SaaS",geo:"India-South",vintage:2026,invested:60,fmv:150,ownership:15,kpis:{revenue:85,revenueGrowthYoY:55,ebitdaMarginPct:-5,runwayMonths:18,netDebtToEbitda:0},covenants:{minRunwayMonths:12,maxNetDebtToEbitda:2.0,minRevenueGrowthYoY:30},bridge:{entryEV:380,ebitdaGrowth:260,multipleChange:40,netDebtChange:0}},
+    {name:"MediCare+",sector:"Healthcare",geo:"India-North",vintage:2027,invested:90,fmv:140,ownership:22,kpis:{revenue:210,revenueGrowthYoY:18,ebitdaMarginPct:16,runwayMonths:30,netDebtToEbitda:1.8},covenants:{minRunwayMonths:9,maxNetDebtToEbitda:3.5,minRevenueGrowthYoY:10},bridge:{entryEV:400,ebitdaGrowth:150,multipleChange:-80,netDebtChange:-30}},
+    {name:"UrbanBasket",sector:"Consumer",geo:"India-West",vintage:2027,invested:70,fmv:45,ownership:20,kpis:{revenue:95,revenueGrowthYoY:6,ebitdaMarginPct:-12,runwayMonths:8,netDebtToEbitda:4.2},covenants:{minRunwayMonths:12,maxNetDebtToEbitda:3.0,minRevenueGrowthYoY:15},bridge:{entryEV:350,ebitdaGrowth:-90,multipleChange:-110,netDebtChange:-55}},
+    {name:"GreenVolt",sector:"Cleantech",geo:"India-South",vintage:2028,invested:100,fmv:220,ownership:25,kpis:{revenue:160,revenueGrowthYoY:68,ebitdaMarginPct:12,runwayMonths:26,netDebtToEbitda:2.1},covenants:{minRunwayMonths:12,maxNetDebtToEbitda:4.0,minRevenueGrowthYoY:25},bridge:{entryEV:400,ebitdaGrowth:380,multipleChange:90,netDebtChange:-50}},
+    {name:"SwiftHaul",sector:"Logistics",geo:"India-North",vintage:2028,invested:80,fmv:120,ownership:16,kpis:{revenue:240,revenueGrowthYoY:22,ebitdaMarginPct:9,runwayMonths:15,netDebtToEbitda:2.8},covenants:{minRunwayMonths:12,maxNetDebtToEbitda:3.0,minRevenueGrowthYoY:12},bridge:{entryEV:500,ebitdaGrowth:160,multipleChange:-70,netDebtChange:-40}},
+    {name:"FusionLabs",sector:"Deeptech",geo:"India-South",vintage:2029,invested:120,fmv:190,ownership:28,kpis:{revenue:40,revenueGrowthYoY:95,ebitdaMarginPct:-40,runwayMonths:20,netDebtToEbitda:0},covenants:{minRunwayMonths:15,maxNetDebtToEbitda:1.0,minRevenueGrowthYoY:50},bridge:{entryEV:430,ebitdaGrowth:180,multipleChange:120,netDebtChange:0}},
+    {name:"NeuraShop",sector:"AI/B2C",geo:"India-West",vintage:2030,invested:100,fmv:130,ownership:19,kpis:{revenue:55,revenueGrowthYoY:120,ebitdaMarginPct:-25,runwayMonths:11,netDebtToEbitda:0},covenants:{minRunwayMonths:12,maxNetDebtToEbitda:1.0,minRevenueGrowthYoY:60},bridge:{entryEV:520,ebitdaGrowth:140,multipleChange:30,netDebtChange:0}},
+  ]
+};
+let selected = data.companies[0].name;
+let charts = {};
+
+function flagsFor(c){
+  const f=[];
+  if(c.kpis.runwayMonths < c.covenants.minRunwayMonths) f.push(`Runway ${c.kpis.runwayMonths}m < ${c.covenants.minRunwayMonths}m`);
+  if(c.kpis.netDebtToEbitda > c.covenants.maxNetDebtToEbitda) f.push(`Leverage ${c.kpis.netDebtToEbitda}x > ${c.covenants.maxNetDebtToEbitda}x`);
+  if(c.kpis.revenueGrowthYoY < c.covenants.minRevenueGrowthYoY) f.push(`Growth ${c.kpis.revenueGrowthYoY}% < ${c.covenants.minRevenueGrowthYoY}%`);
+  return {f, status: f.length>=2?"r":f.length===1?"a":"g"};
+}
+function groupFMV(key){
+  const m={}; data.companies.forEach(c=>{ m[c[key]]=(m[c[key]]||0)+c.fmv; });
+  return Object.entries(m).map(([k,v])=>({k:String(k),v}));
+}
+function doughnut(id, title, arr){
+  if(charts[id]) charts[id].destroy();
+  charts[id] = new Chart($(id), { type:"doughnut",
+    data:{labels:arr.map(a=>a.k),datasets:[{data:arr.map(a=>a.v),backgroundColor:PALETTE(),borderColor:"#fff",borderWidth:2}]},
+    options:{plugins:{title:{display:true,text:title,font:{family:"'JetBrains Mono',monospace",size:11},color:css("--muted")},
+      legend:{position:"bottom",labels:{font:{family:"'JetBrains Mono',monospace",size:10},boxWidth:10}},
+      tooltip:{callbacks:{label:c=>` ₹${fmt(c.parsed)} Cr`}}}}});
+}
+
+function render(){
+  const cos=data.companies;
+  const totInv=cos.reduce((s,c)=>s+c.invested,0), totFMV=cos.reduce((s,c)=>s+c.fmv,0);
+  const flags=cos.map(c=>({name:c.name,...flagsFor(c)}));
+  const red=flags.filter(x=>x.status==="r").length, amber=flags.filter(x=>x.status==="a").length;
+
+  $("asOfHead").textContent = `Fund snapshot — ${data.asOf}`;
+  $("kpiStrip").innerHTML = [
+    ["Invested capital","₹"+fmt(totInv),`${cos.length} companies`],
+    ["Fair market value","₹"+fmt(totFMV),`${fmt(totFMV/data.fundSize*100)}% of ₹${fmt(data.fundSize)} Cr fund`],
+    ["Gross MOIC",(totFMV/totInv).toFixed(2)+"x",""],
+    ["Covenant breaches",String(red),`${amber} on watch`, red>0],
+    ["Dry powder proxy","₹"+fmt(data.fundSize-totInv),"committed − invested"],
+  ].map(([k,v,s,alert])=>`<div class="stat ${alert?'alert':''}"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("");
+
+  $("coTable").innerHTML = cos.map(c=>{
+    const fl = flags.find(x=>x.name===c.name);
+    return `<tr data-name="${c.name}" style="cursor:pointer" class="${selected===c.name?'hl':''}">
+      <td class="n">${c.name}</td><td style="font-family:var(--sans);color:var(--muted)">${c.sector}</td>
+      <td class="r">${fmt(c.invested)}</td><td class="r">${fmt(c.fmv)}</td>
+      <td class="r ${c.fmv/c.invested<1?'neg':''}">${(c.fmv/c.invested).toFixed(1)}x</td>
+      <td class="r">${c.kpis.revenueGrowthYoY}%</td><td class="r">${c.kpis.ebitdaMarginPct}%</td>
+      <td class="r">${c.kpis.runwayMonths}m</td><td class="r">${c.kpis.netDebtToEbitda}x</td>
+      <td><span class="dot dot-${fl.status}"></span><span style="font-family:var(--sans);font-size:12.5px;color:var(--muted)">${fl.f.length?fl.f.join("; "):"Compliant"}</span></td></tr>`;
+  }).join("");
+  document.querySelectorAll("#coTable tr").forEach(tr=>tr.addEventListener("click",()=>{selected=tr.dataset.name;render();}));
+
+  // bridge
+  const sel = cos.find(c=>c.name===selected)||cos[0];
+  const steps=[["Entry EV",sel.bridge.entryEV],["EBITDA growth",sel.bridge.ebitdaGrowth],["Multiple change",sel.bridge.multipleChange],["Net debt Δ",sel.bridge.netDebtChange]];
+  let run=0; const labels=[],bars=[],colors=[];
+  steps.forEach(([l,d],i)=>{
+    labels.push(l);
+    if(i===0){ bars.push([0,d]); run=d; colors.push(css("--navy")); }
+    else { bars.push([run, run+d]); run+=d; colors.push(d>=0?css("--green"):"#8a4a3f"); }
+  });
+  labels.push("Current EV"); bars.push([0,run]); colors.push(css("--navy"));
+  $("bridgeHead").textContent = `Valuation bridge — ${sel.name}`;
+  if(charts.bridge) charts.bridge.destroy();
+  charts.bridge = new Chart($("bridgeChart"), { type:"bar",
+    data:{labels, datasets:[{data:bars, backgroundColor:colors, borderRadius:6}]},
+    options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ₹${fmt(c.raw[1]-c.raw[0])} Cr`}}},
+      scales:{x:{grid:{display:false},ticks:{font:{family:"'JetBrains Mono',monospace",size:11}}},
+        y:{ticks:{font:{family:"'JetBrains Mono',monospace"}},title:{display:true,text:"₹ Cr"}}}}});
+
+  doughnut("pieSector","SECTOR",groupFMV("sector"));
+  doughnut("pieVintage","VINTAGE",groupFMV("vintage"));
+  doughnut("pieGeo","GEOGRAPHY",groupFMV("geo"));
+
+  renderRisk(totFMV);
+}
+
+function renderRisk(totFMV){
+  const repo=+$("repo").value, sent=+$("sent").value, liq=+$("liq").value;
+  $("repoV").textContent=repo.toFixed(2); $("sentV").textContent=(sent>0?"+":"")+sent; $("liqV").textContent=liq;
+  const rows = groupFMV("sector").map(s=>{
+    const beta = BETA[s.k]||1.0;
+    let cap = 25/beta - 1.5*(repo-5.5)*beta + 2*sent + (liq-3);
+    cap = Math.max(5, Math.min(35, cap));
+    const cur = s.v/totFMV*100;
+    const st = cur>cap?"OVER":cur>cap*0.85?"NEAR":"OK";
+    return {s:s.k, beta, cur, cap, st};
+  });
+  $("riskTable").innerHTML = rows.map(r=>`<tr><td class="n">${r.s}</td><td class="r">${r.beta.toFixed(1)}</td>
+    <td class="r">${r.cur.toFixed(1)}%</td><td class="r">${r.cap.toFixed(1)}%</td>
+    <td class="r"><span class="pill ${r.st==="OVER"?"pill-bad":r.st==="NEAR"?"pill-warn":"pill-ok"}">${r.st}</span></td></tr>`).join("");
+}
+
+$("editorBtn").addEventListener("click",()=>{
+  const b=$("editorBlock"); const open=b.style.display!=="none";
+  b.style.display=open?"none":""; if(!open) $("jsonBox").value=JSON.stringify(data,null,2);
+});
+$("applyBtn").addEventListener("click",()=>{
+  try{
+    const p=JSON.parse($("jsonBox").value);
+    if(!p.companies||!p.companies.length) throw new Error("companies[] missing");
+    data=p; selected=data.companies[0].name; $("jsonErr").textContent=""; $("editorBlock").style.display="none"; render();
+  }catch(e){ $("jsonErr").textContent="Invalid JSON: "+e.message; }
+});
+["repo","sent","liq"].forEach(id=>$(id).addEventListener("input",()=>{
+  const cos=data.companies; renderRisk(cos.reduce((s,c)=>s+c.fmv,0));
+}));
+render();
+</script>
+</body>
+</html>
